@@ -23,6 +23,22 @@ export interface PasskeyRegistrationInput {
 export type ReauthMethod = "password" | "presence";
 
 /**
+ * What the server says about the account holding the session.
+ *
+ * Declared here rather than imported from the handler: that module is
+ * `server-only`, and this one runs in the browser. The shape is the JSON body
+ * of `GET /api/auth/webauthn/register` and has to match it by hand.
+ */
+export interface PasskeyAccountState {
+  /** Which proof this account can give, or null when it can give none. */
+  reauth: ReauthMethod | null;
+  /** Whether a password exists — the fact the card has to state, not the hash. */
+  hasPassword: boolean;
+  /** How many passkeys the account already has. */
+  passkeyCount: number;
+}
+
+/**
  * The passkey registration ceremony.
  *
  * Mirrors use-passkey-login: ask for options, hand them to the authenticator,
@@ -31,20 +47,23 @@ export type ReauthMethod = "password" | "presence";
  * it; on the first run the installation token travels with BOTH requests, and
  * on an invitation link the invitation token does the same, because the server
  * checks the authority at both ends. And, from settings, the account
- * has to prove itself again first: registering a passkey deletes the password
- * and nothing in this release can put it back.
+ * has to prove itself again first: for an account that has a password,
+ * registering deletes it and nothing in this release puts it back; for one that
+ * has none, the same proof is what stops a borrowed session from quietly
+ * attaching a key of its own.
  */
 export function usePasskeyRegistration() {
   const t = useTranslations("toast");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /** Which proof this account can give, straight from the server. */
-  async function reauthMethod(): Promise<ReauthMethod | null> {
-    const state = await fetchJson<{ reauth: ReauthMethod | null }>(
-      "/api/auth/webauthn/register",
-    );
-    return state.reauth;
+  /**
+   * The account, straight from the server: which proof it can give, and what
+   * registering will actually do to it. The card guessed at the second half
+   * and got it wrong for every account that has no password.
+   */
+  async function accountState(): Promise<PasskeyAccountState> {
+    return fetchJson<PasskeyAccountState>("/api/auth/webauthn/register");
   }
 
   async function register(input: PasskeyRegistrationInput = {}): Promise<boolean> {
@@ -105,5 +124,5 @@ export function usePasskeyRegistration() {
     }
   }
 
-  return { register, reauthMethod, pending, error };
+  return { register, accountState, pending, error };
 }

@@ -6,7 +6,7 @@ import {
   makeRegisterPresenceHandler,
   makeRegisterVerifyHandler,
 } from "@/server/webauthn";
-import { reauthMethodFor } from "@/server/webauthn/handlers/reauthenticate";
+import { passkeyAccountStateFor } from "@/server/webauthn/handlers/reauthenticate";
 import { apiText } from "@/lib/api-messages";
 
 const deps = { ApiResponse, handleApiError, getOptionalAuthSession };
@@ -35,15 +35,16 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Which proof this account can give, so the interface knows whether to ask for
- * a password or to run a presence ceremony. Says nothing an account holder does
- * not already know about their own account.
+ * What the settings card needs before it opens: which proof this account can
+ * give — password or presence ceremony — and whether adding a passkey will
+ * destroy a password or simply add a second key. Scoped to the session's own
+ * account, and says nothing its holder does not already know about it.
  */
 export async function GET() {
   try {
     const session = await getOptionalAuthSession();
     if (!session) return ApiResponse.unauthorized();
-    return ApiResponse.success({ reauth: await reauthMethodFor(session.user.id) });
+    return ApiResponse.success(await passkeyAccountStateFor(session.user.id));
   } catch (error) {
     return handleApiError(error, "GET /api/auth/webauthn/register");
   }

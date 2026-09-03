@@ -5,25 +5,31 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 
 import { richTags } from "@/components/rich";
-import { usePasskeyRegistration, type ReauthMethod } from "@/hooks/use-passkey-registration";
+import { usePasskeyRegistration, type PasskeyAccountState } from "@/hooks/use-passkey-registration";
 import { useSecureContext, useWebAuthnSupport } from "@/hooks/use-passkey-support";
+import { passkeyAddition, passkeyCopy } from "@/lib/passkey-addition";
 
 /**
  * "Add a passkey", from Settings.
  *
  * Authorised by the session and by nothing else — no installation token, no
  * invitation, and the server refuses a request carrying two authorities at once
- * — but the session alone is not enough for this: when it finishes the account
- * has no password (the server deletes it in the same transaction that creates
- * the credential) and this version has no screen that puts one back. So before
- * anything happens it says what is being lost and asks for proof of identity.
+ * — but the session alone is not enough for this, so before anything happens it
+ * asks for proof of identity.
+ *
+ * What it says while asking depends on the account, and it has to ask the
+ * server which one it is holding. For an account with a password, registering
+ * destroys it in the same transaction that creates the credential and no screen
+ * in this version puts it back: that is worth a warning. For an account that has
+ * no password — every account migrated from an older installation — there is
+ * nothing to destroy, and the warning was simply false.
  */
 export function PasskeyCard() {
   const t = useTranslations("passkeyCard");
   const tCommon = useTranslations("common");
-  const { register, reauthMethod, pending } = usePasskeyRegistration();
+  const { register, accountState, pending } = usePasskeyRegistration();
   const [abierto, setAbierto] = useState(false);
-  const [metodo, setMetodo] = useState<ReauthMethod | null>(null);
+  const [cuenta, setCuenta] = useState<PasskeyAccountState | null>(null);
   const [contrasena, setContrasena] = useState("");
   const [preparando, setPreparando] = useState(false);
 
@@ -37,10 +43,16 @@ export function PasskeyCard() {
   const hayWebAuthn = useWebAuthnSupport();
   const disponible = contextoSeguro && hayWebAuthn;
 
+  const metodo = cuenta?.reauth ?? null;
+  // Three states, and the card says something different in each. The third —
+  // no password and no passkey — cannot belong to anybody signed in, and is
+  // handled rather than guessed: see src/lib/passkey-addition.ts.
+  const copia = cuenta ? passkeyCopy(passkeyAddition(cuenta)) : null;
+
   async function abrir() {
     setPreparando(true);
     try {
-      setMetodo(await reauthMethod());
+      setCuenta(await accountState());
       setAbierto(true);
     } catch {
       toast.error(t("checkFailed"));
@@ -50,6 +62,10 @@ export function PasskeyCard() {
   }
 
   async function confirmar() {
+    // Unreachable: the confirmation only exists once the account has answered.
+    // Returning beats defaulting, which would mean picking one of the two
+    // messages without knowing which is true — the bug this replaces.
+    if (!copia) return;
     const hecho = await register({
       deviceName: nombreDeDispositivo(t("deviceGeneric")),
       currentPassword: metodo === "password" ? contrasena : undefined,
@@ -57,7 +73,7 @@ export function PasskeyCard() {
     setContrasena("");
     if (hecho) {
       setAbierto(false);
-      toast.success(t("added"));
+      toast.success(t(copia.added));
     } else {
       toast.error(t("addFailed"));
     }
@@ -90,11 +106,16 @@ export function PasskeyCard() {
         )}
       </div>
 
-      {abierto && (
+      {abierto && copia && (
         <div className="mt-4 space-y-3 border-t border-line pt-4">
-          <p className="text-xs font-medium leading-relaxed text-ink-2">
-            {t.rich("warning", richTags)}
-          </p>
+          {/* No paragraph at all in the third state: both of the others would
+              assert something about this account that nothing has established,
+              and the refusal below is the whole of what is true. */}
+          {copia.warning && (
+            <p className="text-xs font-medium leading-relaxed text-ink-2">
+              {t.rich(copia.warning, richTags)}
+            </p>
+          )}
 
           {metodo === "password" && (
             <input
@@ -136,7 +157,7 @@ export function PasskeyCard() {
               disabled={pending || metodo === null || (metodo === "password" && !contrasena)}
               className="tap-press flex-1 rounded-full bg-brand px-4 py-2.5 text-xs font-bold text-on-brand disabled:opacity-40"
             >
-              {pending ? t("adding") : t("confirm")}
+              {pending ? t("adding") : t(copia.confirm)}
             </button>
           </div>
         </div>

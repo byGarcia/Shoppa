@@ -45,6 +45,7 @@ const { makeRegisterVerifyHandler } = await import("./register-verify.ts");
 const { setupToken } = await import("@/server/setup");
 const { createInvitation, hashInvitationToken } = await import("@/server/invitations");
 const { resetThrottleForTests, MAX_FAILURES } = await import("@/lib/login-throttle");
+const { passkeyAccountStateFor } = await import("./reauthenticate.ts");
 
 const ORIGINAL = { ...process.env };
 
@@ -364,6 +365,103 @@ describe("volver a demostrar quién eres antes de registrar", () => {
     const handler = makeRegisterVerifyHandler(deps(sesion()));
     const res = await handler(peticion({ attestation }));
     expect(res.status).toBe(400);
+  });
+});
+
+// La tarjeta de Ajustes no tenía a quién preguntar y decía lo mismo para todas
+// las cuentas: que la contraseña dejaría de funcionar. Una cuenta migrada de la
+// aplicación anterior no tiene contraseña, así que era falso de principio a fin.
+// Estas dos cosas —si hay contraseña y cuántas passkeys hay— son lo único que
+// necesita para contarlo bien, y salen de la misma fila que ya lee
+// reauthenticate.
+describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
+  async function ponPasskey(credentialId: string) {
+    await prisma.webAuthnCredential.create({
+      data: {
+        userId,
+        credentialId,
+        publicKey: "clave",
+        counter: 0n,
+        transports: ["internal"],
+        deviceName: "Antigua",
+      },
+    });
+  }
+
+  it("una cuenta con contraseña dice que la tiene y confirma con ella", async () => {
+    expect(await passkeyAccountStateFor(userId)).toEqual({
+      reauth: "password",
+      hasPassword: true,
+      passkeyCount: 0,
+    });
+  });
+
+  it("una cuenta migrada —passkey y ninguna contraseña— dice que no la tiene", async () => {
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
+    await ponPasskey("la-que-ya-tenia");
+    expect(await passkeyAccountStateFor(userId)).toEqual({
+      reauth: "presence",
+      hasPassword: false,
+      passkeyCount: 1,
+    });
+  });
+
+  it("cuenta las passkeys que ya hay, que es lo que decide si ésta es una más", async () => {
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
+    await ponPasskey("una");
+    await ponPasskey("otra");
+    const estado = await passkeyAccountStateFor(userId);
+    expect(estado.passkeyCount).toBe(2);
+    expect(estado.hasPassword).toBe(false);
+  });
+
+  it("ni contraseña ni passkey: no hay con qué confirmar", async () => {
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
+    expect(await passkeyAccountStateFor(userId)).toEqual({
+      reauth: null,
+      hasPassword: false,
+      passkeyCount: 0,
+    });
+  });
+
+  it("una sesión de una cuenta que ya no existe no recibe nada distinto", async () => {
+    expect(await passkeyAccountStateFor("no-existe")).toEqual({
+      reauth: null,
+      hasPassword: false,
+      passkeyCount: 0,
+    });
+  });
+
+  // La respuesta va tal cual al navegador (GET de la ruta de registro): tres
+  // campos y ninguno más. Ni el hash, ni un trozo, ni su longitud.
+  it("no lleva el hash ni ningún otro campo de la fila", async () => {
+    const fila = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const estado = await passkeyAccountStateFor(userId);
+    expect(Object.keys(estado).sort()).toEqual(["hasPassword", "passkeyCount", "reauth"]);
+    const json = JSON.stringify(estado);
+    expect(json).not.toContain(fila.passwordHash);
+    // Ni un trozo: un prefijo del hash es tan publicable como el hash entero.
+    expect(json).not.toContain(fila.passwordHash!.slice(0, 12));
+    expect(json).not.toContain(fila.email);
+  });
+
+  // El contador es de la cuenta que pregunta y de nadie más.
+  it("no cuenta las passkeys de otra cuenta", async () => {
+    const otra = await prisma.user.create({
+      data: { email: "luis@example.com", passwordHash: null },
+      select: { id: true },
+    });
+    await prisma.webAuthnCredential.create({
+      data: {
+        userId: otra.id,
+        credentialId: "la-de-luis",
+        publicKey: "clave",
+        counter: 0n,
+        transports: ["internal"],
+        deviceName: "Suya",
+      },
+    });
+    expect((await passkeyAccountStateFor(userId)).passkeyCount).toBe(0);
   });
 });
 

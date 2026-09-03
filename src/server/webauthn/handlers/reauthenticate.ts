@@ -40,18 +40,52 @@ export type ReauthResult =
   | { ok: true }
   | { ok: false; reason: "wrong-password" | "throttled" | "no-proof" | "unprovable" };
 
-export async function reauthMethodFor(userId: string): Promise<ReauthMethod | null> {
+/**
+ * What the settings card is allowed to know about the account holding the
+ * session: which proof it can give, and the two facts it needs to describe the
+ * operation truthfully before running it.
+ *
+ * Nothing here is about anybody else, and the hash never leaves this module —
+ * `hasPassword` is the one bit of it the holder already knows.
+ */
+export interface PasskeyAccountState {
+  /** Which proof this account can give, or null when it can give none. */
+  reauth: ReauthMethod | null;
+  /** Whether a password exists at all. Never the hash, nor any part of it. */
+  hasPassword: boolean;
+  /** How many passkeys the account already has. */
+  passkeyCount: number;
+}
+
+/**
+ * The same row `reauthenticate` reads, answered before anything is written.
+ *
+ * The card used to assert that adding a passkey destroys the password, for
+ * every account, because it had nothing to ask. For an account migrated from an
+ * older installation — no password, one passkey — every clause of that was
+ * false, and the button offered a deletion that could not happen. The branch
+ * below is the one `reauthenticate` already takes; this only says it out loud.
+ */
+export async function passkeyAccountStateFor(userId: string): Promise<PasskeyAccountState> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { passwordHash: true, _count: { select: { webauthnCredentials: true } } },
   });
-  if (!user) return null;
-  if (user.passwordHash) return "password";
+  // A session for an account that no longer exists proves nothing and is told
+  // nothing: same shape as the account that cannot confirm itself.
+  if (!user) return { reauth: null, hasPassword: false, passkeyCount: 0 };
+
+  const hasPassword = user.passwordHash !== null;
+  const passkeyCount = user._count.webauthnCredentials;
   // An account with neither a password nor a credential cannot be signed into
   // at all, so a session for it should not exist. If one does, it cannot prove
   // anything and is refused rather than waved through.
-  if (user._count.webauthnCredentials > 0) return "presence";
-  return null;
+  const reauth: ReauthMethod | null = hasPassword
+    ? "password"
+    : passkeyCount > 0
+      ? "presence"
+      : null;
+  return { reauth, hasPassword, passkeyCount };
 }
 
 export async function reauthenticate(
