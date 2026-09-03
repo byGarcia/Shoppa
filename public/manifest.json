@@ -1,0 +1,20 @@
+{
+  "name": "Shoppa",
+  "short_name": "Shoppa",
+  "description": "Shared household shopping list, by shop, with price tracking",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4efe4",
+  "theme_color": "#f4efe4",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["shopping", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
+  ]
+}

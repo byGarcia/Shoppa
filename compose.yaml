@@ -1,0 +1,79 @@
+# Shoppa: the application and its database.
+#
+#   cp .env.example .env      # set APP_ORIGIN and AUTH_SECRET
+#   docker compose up -d
+#   docker compose logs app | grep setup
+#
+# Everything Compose substitutes below comes from `.env` in this directory.
+# Three variables have no default and the stack will not work without them:
+# APP_ORIGIN, AUTH_SECRET and POSTGRES_PASSWORD.
+#
+# The development-only database lives in compose.dev.yaml and is not part of
+# this stack.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    # The application listens on 3004 inside the container. Change only the
+    # left-hand side, and make APP_ORIGIN name the port you publish.
+    ports:
+      - "3004:3004"
+    environment:
+      # Scheme, host and port, no path. Decides cookie security, HSTS and the
+      # CSRF origin check, so an https:// value on a plain-HTTP instance means
+      # the browser drops the session cookie and login appears to do nothing.
+      APP_ORIGIN: ${APP_ORIGIN}
+      # openssl rand -base64 32
+      AUTH_SECRET: ${AUTH_SECRET}
+      DATABASE_URL: postgresql://shoppa:${POSTGRES_PASSWORD}@db:5432/shoppa
+      # The clock PRICE_CHECK_CRON is read in. A container is UTC unless told.
+      TZ: ${TZ:-UTC}
+      # The rest are optional; `${VAR:-}` keeps Compose from warning about a
+      # variable nobody set, and the application applies its own default.
+      AUTH_MODE: ${AUTH_MODE:-}
+      TRUSTED_PROXY: ${TRUSTED_PROXY:-}
+      PRICE_FETCH_MODE: ${PRICE_FETCH_MODE:-}
+      PRICE_CHECK_CRON: ${PRICE_CHECK_CRON:-}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      N8N_API_KEY: ${N8N_API_KEY:-}
+      # WEBAUTHN_RP_ID and WEBAUTHN_ORIGIN are deliberately NOT listed here.
+      #
+      # `${VAR:-}` passes an empty string when the variable is unset, and every
+      # other variable in this file reads "" as "unset and use the default".
+      # These two do not: an empty value is a fatal error on purpose, because
+      # silently deriving a relying-party id from a stray blank line would
+      # invalidate every passkey on the instance. Listing them here with the
+      # `:-` default would therefore make a plain `docker compose up` refuse to
+      # start on a fresh install with no `.env` entry for them.
+      #
+      # They default from APP_ORIGIN, which is right for almost everybody. If
+      # you genuinely need to override one — passkeys registered against a
+      # parent domain — add the line here, with a value:
+      #   WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID}
+    # The container applies its migrations before it serves anything, so it must
+    # not start until Postgres is actually accepting connections.
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shoppa
+      POSTGRES_USER: shoppa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # /var/lib/postgresql and NOT /var/lib/postgresql/data: that is where the
+      # postgres:18 image keeps its cluster.
+      - shoppa-db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shoppa -d shoppa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  shoppa-db:

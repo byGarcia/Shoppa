@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+src/generated/
+playwright-report/
+test-results/
+*.tsbuildinfo
+i18n-inventory.json
+# Working notes, specs and drafts. Private-only: draft-orbitlab/ names the
+# homelab this came from. Ignored here rather than relying on a .gitignore
+# written by tooling inside the tree it is protecting.
+.superpowers/

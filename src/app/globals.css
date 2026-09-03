@@ -1,0 +1,241 @@
+@import "tailwindcss";
+
+/* ============================================================
+   "Cálido" design tokens — warm cream canvas, green brand.
+   Light is the default; [data-theme="dark"] re-skins with the
+   same token language. Set on <html> by the theme bootstrap
+   (see layout.tsx) + the Ajustes appearance switch.
+   ============================================================ */
+:root {
+  --bg: #f4efe4;
+  --bg-grad: radial-gradient(120% 55% at 50% -8%, #fbf8f1 0%, #f4efe4 60%);
+  --surface: #ffffff;
+  --surface-2: #efeade;
+  --chip: #ede6d8;
+  --ink: #2b2621;
+  --ink-2: #6e6456;
+  --muted: #9a8f7e;
+  --line: #e7dfd0;
+  --line-2: #d8cfbe;
+  --brand: #3fa372;
+  --brand-strong: #2f8a5e;
+  --brand-tint: #e3f1e8;
+  --on-brand: #ffffff;
+  --danger: #cc4b37;
+  --danger-tint: #f8e4df;
+  --warn: #e0894a;
+  --sh: rgba(120, 90, 40, 0.12);
+  --sh-2: rgba(120, 90, 40, 0.2);
+  --e1: 0 2px 8px var(--sh);
+  --e2: 0 8px 20px -8px var(--sh-2);
+  --e-sheet: 0 -10px 44px rgba(60, 40, 10, 0.22);
+
+  /* Self-hosted font families (@fontsource, imported in layout.tsx) */
+  --font-inter: "Inter Variable";
+  --font-fraunces: "Fraunces Variable";
+  --font-dm-mono: "DM Mono";
+}
+
+[data-theme="dark"] {
+  --bg: #12140f;
+  --bg-grad: radial-gradient(120% 55% at 50% -8%, #1b2019 0%, #12140f 60%);
+  --surface: #1b1e18;
+  --surface-2: #171a14;
+  --chip: #22261d;
+  --ink: #f1f0e9;
+  --ink-2: #aeb3a2;
+  --muted: #7e8574;
+  --line: #2a2e24;
+  --line-2: #343a2c;
+  --brand: #5bd494;
+  --brand-strong: #46e08b;
+  --brand-tint: #16321f;
+  --on-brand: #06210f;
+  --danger: #f0755c;
+  --danger-tint: #33201b;
+  --warn: #e8a05e;
+  --sh: rgba(0, 0, 0, 0.45);
+  --sh-2: rgba(0, 0, 0, 0.6);
+  --e1: 0 2px 10px var(--sh);
+  --e2: 0 8px 22px -8px var(--sh-2);
+  --e-sheet: 0 -10px 44px rgba(0, 0, 0, 0.55);
+}
+
+/* Expose tokens as Tailwind v4 utilities. `inline` keeps them as
+   var() references so every utility follows the theme switch. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-chip: var(--chip);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-tint: var(--brand-tint);
+  --color-on-brand: var(--on-brand);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-warn: var(--warn);
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100dvh;
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background: var(--bg-grad) fixed;
+  background-color: var(--bg);
+}
+
+a {
+  color: var(--brand-strong);
+  text-decoration: none;
+}
+a:hover {
+  opacity: 0.8;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+input:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2.5px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* iOS safe areas for the standalone PWA */
+.safe-top {
+  padding-top: max(env(safe-area-inset-top), 14px);
+}
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 12px);
+}
+
+/* Hide scrollbars on horizontal carousels / scroll regions */
+.cw {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cw::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Subtle press feedback on touch controls */
+.tap-press {
+  transition: transform 0.08s ease, opacity 0.08s ease;
+}
+.tap-press:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
+
+/* 16px inputs prevent iOS zoom-on-focus (overrides the design's
+   smaller display sizes on real text inputs — deliberate UX floor) */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* ============ Motion ============ */
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes shimmer {
+  0% {
+    background-position: -360px 0;
+  }
+  100% {
+    background-position: 360px 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes paOut {
+  to {
+    opacity: 0;
+    transform: translateX(44px);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
