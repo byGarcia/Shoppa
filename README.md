@@ -207,8 +207,10 @@ idempotent, so re-running it after a suite is harmless.
 
 Shoppa is free and stays free. If it saved you an argument about who was supposed to buy the milk
 and you feel like buying some back, there is
-[GitHub Sponsors](https://github.com/sponsors/byGarcia) and
-[Liberapay](https://liberapay.com/bygarcia). A star or a good bug report is worth just as much.
+[GitHub Sponsors](https://github.com/sponsors/byGarcia),
+[Liberapay](https://liberapay.com/bygarcia) and
+[PayPal](https://www.paypal.com/paypalme/adriangmolina). A star or a good bug report is worth just
+as much.
 
 ## License
 
