@@ -99,17 +99,26 @@ describe("qué texto se saca en cada caso", () => {
 /* -------------------------------------------------------------------------- */
 
 const IPHONE: PasskeyListEntry = {
+  // El id de la FILA, que es lo que acepta la ruta de borrado. Nunca el id de
+  // la credencial: ése no sale de src/server/webauthn.
+  id: "fila-del-iphone",
   deviceName: "iPhone",
   createdAt: "2026-06-01T09:00:00.000Z",
   lastUsedAt: "2026-09-02T07:14:00.000Z",
 };
 const RECIEN_CREADA: PasskeyListEntry = {
+  id: "fila-del-mac",
   deviceName: "Mac",
   // Las dos columnas por defecto valen `now()`: una credencial que no ha
   // entrado nunca sigue llevando su hora de creación en `last_used_at`.
   createdAt: "2026-09-01T12:00:00.000Z",
   lastUsedAt: "2026-09-01T12:00:00.000Z",
 };
+
+/** Una cuenta migrada de la aplicación anterior: passkeys y ninguna contraseña. */
+function migrada(passkeys: PasskeyListEntry[]) {
+  return { hasPassword: false, passkeys };
+}
 
 describe("cuándo se usó una passkey", () => {
   it("con una fecha de uso posterior, la nombra", () => {
@@ -126,6 +135,62 @@ describe("cuándo se usó una passkey", () => {
 });
 
 /**
+ * La papelera de cada fila, y la fila a la que se le quita.
+ *
+ * Una cuenta migrada de la aplicación anterior no tiene contraseña: sus
+ * passkeys son toda la forma de entrar que hay, y esta versión no tiene ninguna
+ * pantalla que vuelva a poner una contraseña. Borrar la última no es un error
+ * del que se sale reintentando: es una puerta cerrada con `psql` detrás.
+ */
+describe("qué filas pueden retirarse", () => {
+  it("con dos llaves y sin contraseña, cualquiera de las dos", () => {
+    const carta = closedPasskeyCard({ available: true, account: migrada([IPHONE, RECIEN_CREADA]) });
+    expect(carta.passkeys.map((p) => p.removable)).toEqual([true, true]);
+    expect(carta.explainLastKey).toBe(false);
+  });
+
+  it("con una sola llave y sin contraseña, ninguna: es la única forma de entrar", () => {
+    const carta = closedPasskeyCard({ available: true, account: migrada([IPHONE]) });
+    expect(carta.passkeys.map((p) => p.removable)).toEqual([false]);
+  });
+
+  it("y la tarjeta lo explica en vez de dejar una fila distinta sin decir por qué", () => {
+    const carta = closedPasskeyCard({ available: true, account: migrada([IPHONE]) });
+    expect(carta.explainLastKey).toBe(true);
+    expect(es.passkeyCard).toHaveProperty("deleteLast");
+    expect(en.passkeyCard).toHaveProperty("deleteLast");
+  });
+
+  it("con una sola llave PERO con contraseña, sí puede retirarse: queda otra puerta", () => {
+    const carta = closedPasskeyCard({
+      available: true,
+      account: { hasPassword: true, passkeys: [IPHONE] },
+    });
+    expect(carta.passkeys.map((p) => p.removable)).toEqual([true]);
+    expect(carta.explainLastKey).toBe(false);
+  });
+
+  it("sin ninguna llave no hay nada que explicar", () => {
+    const carta = closedPasskeyCard({ available: true, account: migrada([]) });
+    expect(carta.explainLastKey).toBe(false);
+  });
+
+  it("cada fila lleva el id de su fila, que es el asa que acepta la ruta", () => {
+    const carta = closedPasskeyCard({ available: true, account: migrada([IPHONE, RECIEN_CREADA]) });
+    expect(carta.passkeys.map((p) => p.id)).toEqual(["fila-del-iphone", "fila-del-mac"]);
+  });
+
+  // Esconder la papelera es una cortesía, no la guarda: otra pestaña con la
+  // lista de hace un minuto llega a la ruta con una fila que aquí valía true.
+  it("las claves de la papelera existen en los dos catálogos", () => {
+    for (const clave of ["deleteLabel", "deleteConfirm", "deleted", "deleteFailed", "deleteLast"]) {
+      expect(es.passkeyCard, clave).toHaveProperty(clave);
+      expect(en.passkeyCard, clave).toHaveProperty(clave);
+    }
+  });
+});
+
+/**
  * El defecto que da nombre a este trabajo. Quien entra con su passkey todos los
  * días abría Ajustes y encontraba la misma tarjeta que alguien que no tiene
  * ninguna: el mismo subtítulo, el mismo botón «Añadir» y nada, en ninguna parte,
@@ -134,21 +199,21 @@ describe("cuándo se usó una passkey", () => {
  * no sabía nada.
  */
 describe("la tarjeta cerrada de Ajustes", () => {
-  const conUna = closedPasskeyCard({ available: true, account: { passkeys: [IPHONE] } });
+  const conUna = closedPasskeyCard({ available: true, account: migrada([IPHONE]) });
 
   it("con una passkey, no dice en ningún sitio que la cuenta no tenga ninguna", () => {
     // Ni el subtítulo de estreno ni el botón de la primera llave.
     expect(conUna.subtitle.key).not.toBe("subtitleReady");
     expect(conUna.action).not.toBe("add");
     // Y sí la enseña.
-    expect(conUna.passkeys).toEqual([IPHONE]);
+    expect(conUna.passkeys.map((p) => p.deviceName)).toEqual(["iPhone"]);
   });
 
   it("dice cuántas tiene, contadas", () => {
     expect(conUna.subtitle).toEqual({ key: "subtitleCount", count: 1 });
     const conTres = closedPasskeyCard({
       available: true,
-      account: { passkeys: [IPHONE, RECIEN_CREADA, IPHONE] },
+      account: migrada([IPHONE, RECIEN_CREADA, { ...IPHONE, id: "otra-fila" }]),
     });
     expect(conTres.subtitle).toEqual({ key: "subtitleCount", count: 3 });
   });
@@ -158,7 +223,7 @@ describe("la tarjeta cerrada de Ajustes", () => {
   });
 
   it("sin ninguna passkey sí ofrece la primera, con el texto de siempre", () => {
-    const vacia = closedPasskeyCard({ available: true, account: { passkeys: [] } });
+    const vacia = closedPasskeyCard({ available: true, account: migrada([]) });
     expect(vacia.subtitle).toEqual({ key: "subtitleReady" });
     expect(vacia.action).toBe("add");
     expect(vacia.passkeys).toEqual([]);
@@ -183,16 +248,16 @@ describe("la tarjeta cerrada de Ajustes", () => {
     // La instancia no puede crear una passkey ahí; las que tiene la cuenta
     // siguen existiendo, y esconderlas volvería a dejar la tarjeta sin decir
     // nada de la cuenta.
-    const insegura = closedPasskeyCard({ available: false, account: { passkeys: [IPHONE] } });
+    const insegura = closedPasskeyCard({ available: false, account: migrada([IPHONE]) });
     expect(insegura.subtitle).toEqual({ key: "subtitleInsecure" });
-    expect(insegura.passkeys).toEqual([IPHONE]);
+    expect(insegura.passkeys.map((p) => p.deviceName)).toEqual(["iPhone"]);
     expect(insegura.action).toBe("addAnother");
   });
 
   it("todas las claves que elige existen en los dos catálogos", () => {
     const cartas = [
       conUna,
-      closedPasskeyCard({ available: true, account: { passkeys: [] } }),
+      closedPasskeyCard({ available: true, account: migrada([]) }),
       closedPasskeyCard({ available: true, account: null }),
       closedPasskeyCard({ available: true, account: null, failed: true }),
       closedPasskeyCard({ available: false, account: null }),

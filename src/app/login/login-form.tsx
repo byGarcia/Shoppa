@@ -6,8 +6,22 @@ import { useTranslations } from "next-intl";
 import { useWebAuthnSupport } from "@/hooks/use-passkey-support";
 import { usePasskeyLogin } from "@/hooks/use-passkey-login";
 import { usePasswordLogin } from "@/hooks/use-password-login";
+import type { AuthMode } from "@/lib/env";
+import { loginLayout } from "@/lib/login-layout";
 
-export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
+/**
+ * The sign-in screen.
+ *
+ * What it offers is decided by `loginLayout` from AUTH_MODE alone, and the
+ * ordering is the point: in `auto` the passkey is the action and the password
+ * sits behind a control that reveals it. Every account that came from the
+ * previous application has a passkey and no password, and used to be shown a
+ * field that could never work for it, given the same weight as the button that
+ * could. The field is still there — the server must not reveal which of the two
+ * an address has, and a screen that adapted to the account would answer exactly
+ * that — but it is no longer the first thing offered.
+ */
+export function LoginForm({ mode }: { mode: AuthMode }) {
   const t = useTranslations("login");
   const tCommon = useTranslations("common");
   const tApp = useTranslations("app");
@@ -19,6 +33,14 @@ export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
   const passkey = usePasskeyLogin();
   const passwordLogin = usePasswordLogin();
 
+  const layout = loginLayout(mode);
+  // Opened by the visitor, never by anything known about an account. It starts
+  // closed on every load, so two people typing two different addresses into
+  // this instance see the same screen.
+  const [revealed, setRevealed] = useState(false);
+  const passwordShown =
+    layout.passwordSlot === "primary" || (layout.passwordSlot === "behind-reveal" && revealed);
+
   // Read after hydration, not during render: the server cannot know whether
   // this browser has WebAuthn, and deciding it in the render body made the
   // whole passkey block swap out a beat after the page appeared.
@@ -26,7 +48,7 @@ export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
   const pending = passkey.pending || passwordLogin.pending;
 
   function signInWithPasskey() {
-    if (!email || !supportsWebAuthn || pending) return;
+    if (!layout.passkey || !email || !supportsWebAuthn || pending) return;
     passkey.login(email, from);
   }
 
@@ -36,9 +58,12 @@ export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
   }
 
   // What is typed decides: with a password, the password; without one, the
-  // passkey, which is what Enter did before this field existed.
+  // passkey, which is what Enter did before this field existed. The guard in
+  // signInWithPasskey is what makes that safe in `password` mode, where there
+  // is no passkey to fall through to and Enter on an empty password must do
+  // nothing rather than start a ceremony the server would refuse.
   function submit() {
-    if (passwordEnabled && password) {
+    if (passwordShown && password) {
       signInWithPassword();
       return;
     }
@@ -111,21 +136,39 @@ export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={signInWithPasskey}
-          disabled={!email || !supportsWebAuthn || pending}
-          className="tap-press flex items-center justify-center gap-2.5 rounded-[15px] bg-brand py-4 text-[15px] font-bold text-on-brand disabled:opacity-50"
-          style={{ boxShadow: "0 8px 20px -8px var(--brand)" }}
-        >
-          {passkey.pending ? t("passkeyPending") : t("passkeyButton")}
-        </button>
+        {layout.passkey && (
+          <>
+            <button
+              type="button"
+              onClick={signInWithPasskey}
+              disabled={!email || !supportsWebAuthn || pending}
+              className="tap-press flex items-center justify-center gap-2.5 rounded-[15px] bg-brand py-4 text-[15px] font-bold text-on-brand disabled:opacity-50"
+              style={{ boxShadow: "0 8px 20px -8px var(--brand)" }}
+            >
+              {passkey.pending ? t("passkeyPending") : t("passkeyButton")}
+            </button>
 
-        <p className="text-center text-xs font-medium text-muted">
-          {supportsWebAuthn ? t("passkeyHint") : t("noPasskeySupport")}
-        </p>
+            <p className="text-center text-xs font-medium text-muted">
+              {supportsWebAuthn ? t("passkeyHint") : t("noPasskeySupport")}
+            </p>
+          </>
+        )}
 
-        {passwordEnabled && (
+        {/* The reveal. Discreet on purpose: it is the second way in, and it is
+            the only one some accounts have. It says nothing about any account —
+            it is on the screen before an address is typed and stays there
+            whatever is typed. */}
+        {layout.passwordSlot === "behind-reveal" && !revealed && (
+          <button
+            type="button"
+            onClick={() => setRevealed(true)}
+            className="tap-press mx-auto mt-1 rounded-full px-4 py-2 text-xs font-bold text-muted"
+          >
+            {t("passwordReveal")}
+          </button>
+        )}
+
+        {passwordShown && (
           <>
             <label htmlFor="login-password" className="ml-1 mt-2 text-xs font-semibold text-muted">
               {t("passwordLabel")}
@@ -135,6 +178,11 @@ export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
               type="password"
               autoComplete="current-password"
               enterKeyHint="go"
+              // Only where the field arrived because somebody asked for it. In
+              // `password` mode it is on the screen from the start and stealing
+              // focus from the address would be taking the caret off the field
+              // that is filled first.
+              autoFocus={layout.passwordSlot === "behind-reveal"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={onEnter}
@@ -148,10 +196,22 @@ export function LoginForm({ passwordEnabled }: { passwordEnabled: boolean }) {
               </p>
             )}
 
+            {/* Primary where it is the only way in, quiet where it is the
+                second one: two buttons of equal weight is the screen this
+                change exists to undo. */}
             <button
               type="submit"
               disabled={!email || !password || pending}
-              className="tap-press flex items-center justify-center gap-2.5 rounded-[15px] border border-line bg-surface py-4 text-[15px] font-bold text-ink shadow-[var(--e1)] disabled:opacity-50"
+              className={
+                layout.passwordSlot === "primary"
+                  ? "tap-press flex items-center justify-center gap-2.5 rounded-[15px] bg-brand py-4 text-[15px] font-bold text-on-brand disabled:opacity-50"
+                  : "tap-press flex items-center justify-center gap-2.5 rounded-[15px] border border-line bg-surface py-4 text-[15px] font-bold text-ink shadow-[var(--e1)] disabled:opacity-50"
+              }
+              style={
+                layout.passwordSlot === "primary"
+                  ? { boxShadow: "0 8px 20px -8px var(--brand)" }
+                  : undefined
+              }
             >
               {passwordLogin.pending ? t("passwordPending") : t("passwordButton")}
             </button>

@@ -10,14 +10,15 @@ import { verifyWebAuthnAssertion } from "../credentials-authorize";
 
 /**
  * Proof of who is holding the session, demanded again before a passkey is
- * registered.
+ * registered — and, since there is one, before a passkey is deleted.
  *
- * A session on its own is not enough authority for this one operation.
- * Registering a passkey deletes the account's password, this release has no
- * route to delete a credential or set a password again, and the only way back
- * is a shell on the server. So one tap from a borrowed device — a 30-day JWT on
- * a phone somebody left unlocked — would attach an attacker's authenticator and
- * destroy the owner's way in, permanently.
+ * A session on its own is not enough authority for either operation, and it is
+ * the same reason twice. Registering a passkey deletes the account's password
+ * and no screen in this release puts one back; deleting a passkey takes away a
+ * way in, and the guard in delete-credential.ts is what stops it taking the
+ * last. So one tap from a borrowed device — a 30-day JWT on a phone somebody
+ * left unlocked — would otherwise attach an attacker's authenticator, or strip
+ * the owner's, with nothing asked of whoever tapped.
  *
  * The proof is whatever the account can actually produce: its current password
  * if it has one, and otherwise an assertion from an authenticator it already
@@ -43,13 +44,25 @@ export type ReauthResult =
 /**
  * One passkey, as the settings card lists it.
  *
- * Three fields, and the omissions are the point. The credential id, the public
- * key and the counter stay in this module: the card has nothing to do with any
- * of them, and this release has no route that takes a credential id — there is
- * no way to delete one — so putting an id on the wire would hand the interface
- * a handle to an operation that does not exist.
+ * Four fields, and the omissions are still the point. The **credential id** —
+ * the authenticator's own public handle — stays in this module, along with the
+ * public key and the counter: the card has nothing to do with any of them.
+ *
+ * What did change is that there is now something to name. `DELETE
+ * /api/auth/webauthn/credentials/[id]` retires a key, and it needs a handle for
+ * the row. That handle is the database row's own id, not the credential id: an
+ * opaque cuid that means nothing outside this instance, that the route resolves
+ * only against the session's own account, and that carries none of the
+ * authenticator's identity. Publishing the credential id instead would put the
+ * WebAuthn handle itself on the wire for the sake of a delete button.
  */
 export interface PasskeySummary {
+  /**
+   * The row's id. The only thing here that is a handle, and it is a handle to
+   * one operation: deleting this key, by its owner. See
+   * src/server/webauthn/handlers/delete-credential.ts.
+   */
+  id: string;
   /** The readable name the browser was given at registration time. */
   deviceName: string;
   /** ISO 8601, which is what it becomes on the wire anyway. */
@@ -104,9 +117,9 @@ export async function passkeyAccountStateFor(userId: string): Promise<PasskeyAcc
     select: {
       passwordHash: true,
       webauthnCredentials: {
-        // Three columns and no others: see PasskeySummary for what is left in
-        // the table on purpose.
-        select: { deviceName: true, createdAt: true, lastUsedAt: true },
+        // Four columns and no others: see PasskeySummary for what is left in
+        // the table on purpose. `id` is the row's, never `credentialId`.
+        select: { id: true, deviceName: true, createdAt: true, lastUsedAt: true },
         // Newest first, like the voice tokens and the invitations, so a key
         // just added is the one at the top.
         orderBy: { createdAt: "desc" },
@@ -119,6 +132,7 @@ export async function passkeyAccountStateFor(userId: string): Promise<PasskeyAcc
 
   const hasPassword = user.passwordHash !== null;
   const passkeys = user.webauthnCredentials.map((credential) => ({
+    id: credential.id,
     deviceName: credential.deviceName,
     createdAt: credential.createdAt.toISOString(),
     lastUsedAt: credential.lastUsedAt.toISOString(),

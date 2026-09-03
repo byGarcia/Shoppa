@@ -210,10 +210,11 @@ describe("alta de passkey autorizada por la sesión", () => {
   });
 });
 
-// Una sesión sola no basta para esto: registrar una passkey borra la contraseña,
-// no hay ninguna ruta en esta versión que borre una credencial ni que vuelva a
-// poner contraseña, y la única salida es una consola en el servidor. Un móvil
-// prestado con su JWT de 30 días no puede bastar para eso.
+// Una sesión sola no basta para esto: registrar una passkey borra la contraseña
+// y ninguna pantalla de esta versión vuelve a ponerla, así que la única salida
+// es una consola en el servidor. Un móvil prestado con su JWT de 30 días no
+// puede bastar para eso. Borrar una passkey exige la misma prueba y por la
+// misma razón; sus pruebas están en delete-credential.test.ts.
 describe("volver a demostrar quién eres antes de registrar", () => {
   const sesion = () => ({ user: { id: userId, email: "ana@example.com" } });
 
@@ -507,10 +508,12 @@ describe("las passkeys que devuelve para pintarlas", () => {
     });
   }
 
-  it("da el nombre del dispositivo y las dos fechas, en ISO", async () => {
+  it("da el id de la fila, el nombre del dispositivo y las dos fechas, en ISO", async () => {
     await ponPasskey("la-del-movil", "iPhone", { createdAt: ANTES, lastUsedAt: DESPUES });
+    const fila = await prisma.webAuthnCredential.findFirstOrThrow({ select: { id: true } });
     const [passkey] = (await passkeyAccountStateFor(userId)).passkeys;
     expect(passkey).toEqual({
+      id: fila.id,
       deviceName: "iPhone",
       createdAt: ANTES.toISOString(),
       lastUsedAt: DESPUES.toISOString(),
@@ -520,8 +523,9 @@ describe("las passkeys que devuelve para pintarlas", () => {
   it("no lleva el id de la credencial, ni la clave pública, ni el contador", async () => {
     await ponPasskey("la-del-movil", "iPhone");
     const json = JSON.stringify((await passkeyAccountStateFor(userId)).passkeys);
-    // No hay ninguna ruta que borre una credencial en esta versión, así que un
-    // id en la respuesta sería el asa de una operación que no existe.
+    // El asa que SÍ sale es el id de la FILA, que es lo que acepta la ruta de
+    // borrado. El de la credencial es el identificador público del
+    // autenticador y no tiene ninguna pantalla que lo use.
     expect(json).not.toContain("la-del-movil");
     expect(json).not.toContain("clave-publica-secreta");
     expect(json).not.toContain("counter");

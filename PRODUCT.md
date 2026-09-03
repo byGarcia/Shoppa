@@ -47,9 +47,22 @@ Shoppa does not own:
   (`auto` by default, `passkey`, `password`) sets the instance policy, and an unrecognised value is
   refused rather than defaulted — on the first request, since that is where the environment is
   validated; see `docs/installation.md`.
+- **Where both are offered, the passkey is the offer.** With `AUTH_MODE=auto` the sign-in screen
+  leads with the passkey and puts the password behind a control that reveals it. Every account that
+  came from an older installation has a passkey and no password, and used to be shown a field that
+  could never work for it, given the same weight as the button that could. It is reordered rather
+  than adapted: the screen must not know which of the two an address has before the address is
+  submitted, or the screen answers "does this account exist here" to anybody who types.
 - **Registering a passkey deletes that account's password.** Deletes, not disables: a dormant hash
   is a secret one `UPDATE` revives. The way back is `scripts/auth-password.mjs`, run inside the
   container, which is the level of proof that deserves.
+- **A passkey can be retired, and never the last way in.** Settings lists the account's keys and
+  removes one on the same proof registering demands — the current password, or an assertion from a
+  key it already holds — because a borrowed session must not be able to strip its owner's key any
+  more than it may attach its own. What no proof buys is leaving an account with nothing that opens
+  it: the last credential of an account with no usable password is refused by the server, not merely
+  hidden by the interface, and two deletions racing for the last two keys are ordered by a lock on
+  the account's row so that one of them loses.
 - **First run is a claim, not a registration.** An instance with no accounts can be claimed once,
   with a token printed to the container log on the first request of every boot until somebody does.
   After that, registration is closed and everybody else arrives by single-use invitation.
@@ -73,8 +86,11 @@ Shoppa does not own:
   through `pg`, a production dependency, rather than through the generated client, and they are
   copied into the image file by file already. It gets its own change and its own boot test, not a
   line in a release whose job is that a stranger can install this at all.
-- **Deleting a passkey, and setting a password again, from the interface.** Today both need shell
-  access. The registration flow at least asks for proof of who is walking through the door.
+- **Setting a password again, from the interface.** An account that traded its password for a
+  passkey has no screen that puts one back; the way is `scripts/auth-password.mjs` inside the
+  container. Deleting a passkey used to be on this list with it and no longer is — see above — which
+  is what makes the last-credential guard load-bearing: without a way to set a password, the last
+  key really is the whole of how somebody gets in.
 - **`N8N_API_KEY` is a bad name.** It is the bearer key of the machine-to-machine price endpoints
   and has nothing to do with any workflow runner. Renaming it would break the environment of every
   existing deployment for a cosmetic gain, so it stays until there is a reason to break it anyway.

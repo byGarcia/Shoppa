@@ -44,9 +44,10 @@
     "tagline": "Tu lista de la compra, por súper y ordenada sola.",
     "passkeyPending": "Verificando…",
     "passkeyButton": "🔑 Entrar con passkey",
-    "passkeyHint": "Sin contraseñas. Usa Face ID o tu llave.",
+    "passkeyHint": "Usa Face ID, Touch ID o tu llave de seguridad.",
     "noPasskeySupport": "Este dispositivo no soporta passkeys.",
-    "passwordLabel": "O entra con tu contraseña",
+    "passwordReveal": "Entrar con contraseña",
+    "passwordLabel": "Contraseña",
     "passwordPlaceholder": "Tu contraseña",
     "passwordPending": "Entrando…",
     "passwordButton": "Entrar con contraseña"
@@ -225,6 +226,14 @@
     "added": "Passkey añadida. A partir de ahora entras con ella y sin contraseña.",
     "addedAdditional": "Passkey añadida. Ya puedes entrar también con esta llave.",
     "addFailed": "No se ha podido añadir la passkey",
+    "deleteLabel": "Borrar {name}",
+    "deleteConfirm": "¿Borrar «{name}»? Ese dispositivo dejará de abrir tu cuenta.",
+    "deletePrompt": "Confirma con tu contraseña actual para borrar <b>{name}</b>. Ese dispositivo dejará de abrir tu cuenta.",
+    "deleteConfirmButton": "Borrar la passkey",
+    "deleting": "Borrando…",
+    "deleted": "Passkey borrada. Ese dispositivo ya no abre tu cuenta.",
+    "deleteFailed": "No se ha podido borrar la passkey",
+    "deleteLast": "Ésta es tu única forma de entrar en esta cuenta: si la borras, no podrías volver a entrar. Añade otra passkey antes de quitar ésta.",
     "deviceGeneric": "Este dispositivo"
   },
   "inviteCard": {
@@ -416,7 +425,8 @@
       "invitation": "Invitación",
       "item": "Item",
       "product": "Producto",
-      "token": "Token"
+      "token": "Token",
+      "passkey": "Passkey"
     },
     "validation": {
       "nameRequired": "El nombre es obligatorio",
@@ -446,6 +456,7 @@
     "webauthn": {
       "missingStep": "Falta step=presence|options|verify",
       "confirmFirst": "Confirma tu identidad antes de añadir una passkey",
+      "confirmToDelete": "Confirma tu identidad antes de borrar una passkey",
       "throttled": "Demasiados intentos. Espera unos minutos y vuelve a probar.",
       "badConfirmation": "La confirmación no es correcta",
       "missingEmail": "Falta el correo",
@@ -454,7 +465,8 @@
       "verifyFailed": "No se pudo verificar la passkey",
       "alreadyClaimed": "Esta instancia ya tiene dueño",
       "credentialTaken": "Esa passkey ya está registrada aquí",
-      "defaultDeviceName": "Passkey"
+      "defaultDeviceName": "Passkey",
+      "lastCredential": "No se puede borrar la última forma de entrar en esta cuenta. Añade otra passkey antes de quitar ésta."
     },
     "ingest": {
       "missingText": "Falta el texto",

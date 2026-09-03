@@ -44,9 +44,10 @@
     "tagline": "Your shopping list, split by shop and sorted for you.",
     "passkeyPending": "Checking…",
     "passkeyButton": "🔑 Sign in with a passkey",
-    "passkeyHint": "No passwords. Use Face ID or your key.",
+    "passkeyHint": "Use Face ID, Touch ID or your security key.",
     "noPasskeySupport": "This device does not support passkeys.",
-    "passwordLabel": "Or use your password",
+    "passwordReveal": "Sign in with a password",
+    "passwordLabel": "Password",
     "passwordPlaceholder": "Your password",
     "passwordPending": "Signing in…",
     "passwordButton": "Sign in with a password"
@@ -225,6 +226,14 @@
     "added": "Passkey added. From now on you sign in with it, with no password.",
     "addedAdditional": "Passkey added. You can now sign in with this key too.",
     "addFailed": "The passkey could not be added",
+    "deleteLabel": "Delete {name}",
+    "deleteConfirm": "Delete “{name}”? That device will stop opening your account.",
+    "deletePrompt": "Confirm with your current password to delete <b>{name}</b>. That device will stop opening your account.",
+    "deleteConfirmButton": "Delete this passkey",
+    "deleting": "Deleting…",
+    "deleted": "Passkey deleted. That device no longer opens your account.",
+    "deleteFailed": "The passkey could not be deleted",
+    "deleteLast": "This is your only way into this account: delete it and you could not get back in. Add another passkey before removing this one.",
     "deviceGeneric": "This device"
   },
   "inviteCard": {
@@ -416,7 +425,8 @@
       "invitation": "Invitation",
       "item": "Item",
       "product": "Product",
-      "token": "Token"
+      "token": "Token",
+      "passkey": "Passkey"
     },
     "validation": {
       "nameRequired": "The name is required",
@@ -446,6 +456,7 @@
     "webauthn": {
       "missingStep": "Missing step=presence|options|verify",
       "confirmFirst": "Confirm your identity before adding a passkey",
+      "confirmToDelete": "Confirm your identity before deleting a passkey",
       "throttled": "Too many attempts. Wait a few minutes and try again.",
       "badConfirmation": "That confirmation is not right",
       "missingEmail": "The email is missing",
@@ -454,7 +465,8 @@
       "verifyFailed": "The passkey could not be verified",
       "alreadyClaimed": "This instance already has an owner",
       "credentialTaken": "That passkey is already registered here",
-      "defaultDeviceName": "Passkey"
+      "defaultDeviceName": "Passkey",
+      "lastCredential": "The last way into this account cannot be deleted. Add another passkey before removing this one."
     },
     "ingest": {
       "missingText": "The text is missing",

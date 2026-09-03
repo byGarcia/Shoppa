@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 
-import { fetchJson } from "@/lib/fetcher";
+import { FetchError, fetchJson } from "@/lib/fetcher";
 import type { PasskeyListEntry } from "@/lib/passkey-addition";
 import { groceryKeys } from "@/types";
 import { useTranslations } from "next-intl";
@@ -99,16 +99,7 @@ export function usePasskeyRegistration() {
       let presenceAssertion: string | undefined;
       const accountExists = !input.setupToken && !input.invitationToken;
       if (accountExists && !input.currentPassword) {
-        const presenceOptions = await fetchJson<unknown>(
-          "/api/auth/webauthn/register?step=presence",
-          { method: "POST" },
-        );
-        const assertion = await startAuthentication({
-          optionsJSON: presenceOptions as Parameters<
-            typeof startAuthentication
-          >[0]["optionsJSON"],
-        });
-        presenceAssertion = JSON.stringify(assertion);
+        presenceAssertion = await proveByPresence();
       }
 
       const proof = { currentPassword: input.currentPassword, presenceAssertion };
@@ -137,4 +128,77 @@ export function usePasskeyRegistration() {
   }
 
   return { register, pending, error };
+}
+
+/**
+ * Prove who is holding the session with an authenticator the account already
+ * has, and hand back the assertion for whoever asked.
+ *
+ * One function for both irreversible operations. Registering a passkey and
+ * deleting one demand the same proof — see the server's `reauthenticate` — and
+ * a second copy of this ceremony would be a second place for the scope to drift
+ * from "presence" to something a sign-in challenge could satisfy.
+ *
+ * The challenge is minted on the registration path because that is where the
+ * step lives; it is scoped, single-use, and says nothing about what it will be
+ * spent on.
+ */
+async function proveByPresence(): Promise<string> {
+  const options = await fetchJson<unknown>("/api/auth/webauthn/register?step=presence", {
+    method: "POST",
+  });
+  const assertion = await startAuthentication({
+    optionsJSON: options as Parameters<typeof startAuthentication>[0]["optionsJSON"],
+  });
+  return JSON.stringify(assertion);
+}
+
+export interface PasskeyDeletionInput {
+  /** The row id from the list. Never the WebAuthn credential id. */
+  id: string;
+  /**
+   * The account's current password, for an account that has one. Absent means
+   * the proof is a presence assertion, which this hook obtains itself.
+   */
+  currentPassword?: string;
+}
+
+/**
+ * Retire one of the account's own passkeys.
+ *
+ * The proof is demanded for the same reason it is demanded before adding one: a
+ * borrowed session must not be able to strip the owner's key. Which proof is
+ * decided by the account — `reauth` in the card's query — and the presence
+ * ceremony runs here rather than in the component so the component never holds
+ * a half-finished ceremony.
+ *
+ * `onSettled` rather than `onSuccess`: a refusal is exactly when the list on the
+ * screen is most likely to be the stale one that caused it.
+ */
+export function useDeletePasskey() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, currentPassword }: PasskeyDeletionInput) => {
+      const presenceAssertion = currentPassword ? undefined : await proveByPresence();
+      // JSON.stringify drops the undefined half, so exactly one proof travels.
+      await fetchJson<{ success: boolean }>(`/api/auth/webauthn/credentials/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ currentPassword, presenceAssertion }),
+      });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: groceryKeys.passkeys }),
+  });
+}
+
+/**
+ * True when the server refused because this was the account's last way in.
+ *
+ * Read off the response's `code` and not its sentence: the sentence is
+ * translated and the card has its own words for this one refusal, which is the
+ * only one it can explain rather than merely report.
+ */
+export function isLastCredentialRefusal(error: unknown): boolean {
+  if (!(error instanceof FetchError)) return false;
+  const body = error.body as { code?: unknown } | null;
+  return typeof body === "object" && body !== null && body.code === "LAST_CREDENTIAL";
 }

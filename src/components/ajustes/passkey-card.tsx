@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 
 import { richTags } from "@/components/rich";
-import { usePasskeyAccount, usePasskeyRegistration } from "@/hooks/use-passkey-registration";
+import {
+  isLastCredentialRefusal,
+  useDeletePasskey,
+  usePasskeyAccount,
+  usePasskeyRegistration,
+} from "@/hooks/use-passkey-registration";
 import { useSecureContext, useWebAuthnSupport } from "@/hooks/use-passkey-support";
 import {
   closedPasskeyCard,
@@ -14,11 +20,12 @@ import {
   passkeyCopy,
   passkeyUse,
   type PasskeyListEntry,
+  type PasskeyRow,
 } from "@/lib/passkey-addition";
 import { groceryKeys } from "@/types";
 
 /**
- * The passkeys of this account, and "add another", from Settings.
+ * The passkeys of this account, from Settings: what it has, one more, one less.
  *
  * The card has two halves and they answer different questions.
  *
@@ -26,18 +33,22 @@ import { groceryKeys } from "@/types";
  * the device was given when it was registered and when each was last used, in
  * the shape the voice-token list and the invitation list use for the same two
  * facts, because it is the same gesture and must not have to be learned twice.
- * There is no bin at the end of the row, unlike those two: this release has no
- * route that deletes a credential, and a control implying one would be a
- * promise the server cannot keep.
+ * Each row now ends in the same bin those two carry, and it does the same job:
+ * until this existed a phone that was lost a year ago still opened the
+ * instance, and the only way to retire its key was a database console.
+ *
+ * The bin is withheld from one row and one only: the last credential of an
+ * account with no password, where deleting it would leave nobody able to sign
+ * in and no screen able to undo it. A line under the list says so, because a
+ * row that is quietly different from every other row in Settings reads as a
+ * bug. The server refuses it too, and it is the server that decides — this card
+ * can be a minute out of date and two of them can be open at once.
  *
  * **Open** — what adding one will do. Authorised by the session and by nothing
- * else — no installation token, no invitation, and the server refuses a request
- * carrying two authorities at once — but the session alone is not enough for
- * this, so before anything happens it asks for proof of identity. What it says
- * while asking depends on the account: for one with a password, registering
- * destroys it in the same transaction that creates the credential and no screen
- * in this version puts it back; for one that has no password — every account
- * migrated from an older installation — there is nothing to destroy.
+ * else, but the session alone is not enough for this: before anything happens
+ * it asks for proof of identity. Deleting asks for exactly the same proof, and
+ * for the same reason — a borrowed session must not be able to attach a key of
+ * its own, nor strip the owner's.
  */
 export function PasskeyCard() {
   const t = useTranslations("passkeyCard");
@@ -45,12 +56,18 @@ export function PasskeyCard() {
   const locale = useLocale();
   const queryClient = useQueryClient();
   const { register, pending } = usePasskeyRegistration();
+  const deletion = useDeletePasskey();
   // On mount, not on open. The closed card is the one on the screen, and until
   // this arrived it described an account it had never asked about.
   const { data, isError } = usePasskeyAccount();
   const cuenta = data ?? null;
   const [abierto, setAbierto] = useState(false);
   const [contrasena, setContrasena] = useState("");
+  // The key waiting on a password before it goes. Only ever set for an account
+  // whose proof IS a password; a presence account confirms with its
+  // authenticator and never lands here.
+  const [porBorrar, setPorBorrar] = useState<{ id: string; deviceName: string } | null>(null);
+  const [contrasenaBorrado, setContrasenaBorrado] = useState("");
 
   // window.isSecureContext is the browser's own authority on whether it will
   // let a passkey be created, and it is right where APP_ORIGIN is wrong: on
@@ -90,6 +107,40 @@ export function PasskeyCard() {
     }
   }
 
+  /**
+   * The bin. Same confirmation the voice-token list uses, then the proof.
+   *
+   * A password account has to type it, so the row hands over to the panel
+   * above; an account with no password proves itself with an authenticator it
+   * already has, and there is nothing to type — the ceremony starts here.
+   */
+  function pedirBorrado(passkey: PasskeyRow) {
+    if (!window.confirm(t("deleteConfirm", { name: passkey.deviceName }))) return;
+    if (metodo === "password") {
+      // One panel at a time: the card cannot be adding and removing at once.
+      setAbierto(false);
+      setContrasena("");
+      setContrasenaBorrado("");
+      setPorBorrar({ id: passkey.id, deviceName: passkey.deviceName });
+      return;
+    }
+    void borrar(passkey.id);
+  }
+
+  async function borrar(id: string, currentPassword?: string) {
+    try {
+      await deletion.mutateAsync({ id, currentPassword });
+      setPorBorrar(null);
+      setContrasenaBorrado("");
+      toast.success(t("deleted"));
+    } catch (error) {
+      // The one refusal this card can explain rather than merely report. It
+      // reaches here when the list on the screen was out of date — another tab,
+      // another phone — because the row it came from carried no bin.
+      toast.error(isLastCredentialRefusal(error) ? t("deleteLast") : t("deleteFailed"));
+    }
+  }
+
   return (
     <section>
       <div className="rounded-[18px] border border-line bg-surface px-4 py-4 shadow-[var(--e1)]">
@@ -108,7 +159,7 @@ export function PasskeyCard() {
                 : t(cerrada.subtitle.key)}
             </span>
           </span>
-          {!abierto && (
+          {!abierto && !porBorrar && (
             <button
               type="button"
               onClick={() => setAbierto(true)}
@@ -179,6 +230,46 @@ export function PasskeyCard() {
             </div>
           </div>
         )}
+
+        {/* Removing asks for exactly what adding asks for. The panel is the same
+            panel because it is the same question. */}
+        {porBorrar && (
+          <div className="mt-4 space-y-3 border-t border-line pt-4">
+            <p className="text-xs font-medium leading-relaxed text-ink-2">
+              {t.rich("deletePrompt", { ...richTags, name: porBorrar.deviceName })}
+            </p>
+            <input
+              type="password"
+              autoComplete="current-password"
+              aria-label={t("passwordLabel")}
+              value={contrasenaBorrado}
+              onChange={(e) => setContrasenaBorrado(e.target.value)}
+              placeholder={t("passwordPlaceholder")}
+              className="w-full rounded-[15px] border border-line bg-bg px-4 py-3 text-[15px] font-medium text-ink outline-none placeholder:text-muted"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPorBorrar(null);
+                  setContrasenaBorrado("");
+                }}
+                disabled={deletion.isPending}
+                className="tap-press flex-1 rounded-full border border-line bg-surface px-4 py-2.5 text-xs font-bold text-ink disabled:opacity-40"
+              >
+                {tCommon("cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void borrar(porBorrar.id, contrasenaBorrado)}
+                disabled={deletion.isPending || !contrasenaBorrado}
+                className="tap-press flex-1 rounded-full bg-danger px-4 py-2.5 text-xs font-bold text-on-brand disabled:opacity-40"
+              >
+                {deletion.isPending ? t("deleting") : t("deleteConfirmButton")}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* The keys themselves. Rendered whenever there are any, secure context or
@@ -193,18 +284,40 @@ export function PasskeyCard() {
           <ul className="flex flex-col gap-2">
             {cerrada.passkeys.map((passkey) => (
               <li
-                key={`${passkey.createdAt}-${passkey.deviceName}`}
-                className="rounded-[13px] border border-line bg-surface px-3.5 py-3 shadow-[var(--e1)]"
+                key={passkey.id}
+                className="flex items-center gap-2 rounded-[13px] border border-line bg-surface px-3.5 py-3 shadow-[var(--e1)]"
               >
-                <span className="block truncate text-[15px] font-semibold text-ink">
-                  {passkey.deviceName}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-ink">
+                    {passkey.deviceName}
+                  </span>
+                  <span className="block text-xs font-medium text-muted">
+                    {uso(passkey, t, locale)}
+                  </span>
                 </span>
-                <span className="block text-xs font-medium text-muted">
-                  {uso(passkey, t, locale)}
-                </span>
+                {/* Withheld from the account's only way in — see
+                    closedPasskeyCard. A bin the server would refuse is a promise
+                    it cannot keep, and this card has been fixed twice for
+                    exactly that. */}
+                {passkey.removable && (
+                  <button
+                    type="button"
+                    aria-label={t("deleteLabel", { name: passkey.deviceName })}
+                    disabled={deletion.isPending || pending}
+                    className="tap-press flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-danger-tint text-danger disabled:opacity-40"
+                    onClick={() => pedirBorrado(passkey)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
+          {cerrada.explainLastKey && (
+            <p className="mt-2.5 px-1 text-xs font-medium leading-relaxed text-muted">
+              {t("deleteLast")}
+            </p>
+          )}
         </>
       )}
     </section>

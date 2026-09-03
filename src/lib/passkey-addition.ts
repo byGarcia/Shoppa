@@ -73,6 +73,11 @@ export function passkeyCopy(addition: PasskeyAddition): PasskeyCopy {
 
 /** One passkey as the card lists it. The client half of `PasskeySummary`. */
 export interface PasskeyListEntry {
+  /**
+   * The row's id, which is what the delete route takes. Never the WebAuthn
+   * credential id — see the server type for the difference and why it matters.
+   */
+  id: string;
   deviceName: string;
   /** ISO 8601. */
   createdAt: string;
@@ -111,6 +116,26 @@ export type PasskeySubtitle =
   | { key: "subtitleInsecure" | "subtitleChecking" | "checkFailed" | "subtitleReady" }
   | { key: "subtitleCount"; count: number };
 
+/** One row of the list, with what the row's own controls need. */
+export interface PasskeyRow extends PasskeyListEntry {
+  /**
+   * Whether this key may be retired.
+   *
+   * False for the last credential of an account that has no password, which is
+   * the account every migration from the previous application produced.
+   * Deleting it would leave nobody able to sign in and no screen able to undo
+   * it. The bin is left off that row rather than shown and refused: this card
+   * has already been fixed twice for offering something the server would not
+   * do, and a control that always fails is the same defect in a smaller shape.
+   *
+   * It is a courtesy and not the guard. The server decides — see
+   * src/server/webauthn/handlers/delete-credential.ts — and it has to, because
+   * a second tab holding a list from a minute ago can reach the route with a
+   * row this flag was true for.
+   */
+  removable: boolean;
+}
+
 /** Everything the closed card renders. */
 export interface ClosedPasskeyCard {
   subtitle: PasskeySubtitle;
@@ -122,7 +147,12 @@ export interface ClosedPasskeyCard {
    */
   action: "add" | "addAnother" | null;
   /** The rows underneath. Empty renders no list and no heading. */
-  passkeys: readonly PasskeyListEntry[];
+  passkeys: readonly PasskeyRow[];
+  /**
+   * True when a row had its bin withheld, so the card can say why instead of
+   * leaving a single row silently different from every other list in Settings.
+   */
+  explainLastKey: boolean;
 }
 
 /**
@@ -143,18 +173,25 @@ export function closedPasskeyCard(input: {
   /** A secure context and a browser that does WebAuthn. */
   available: boolean;
   /** What the server answered, or null while it has not answered. */
-  account: { passkeys: readonly PasskeyListEntry[] } | null;
+  account: { hasPassword: boolean; passkeys: readonly PasskeyListEntry[] } | null;
   /** The request failed rather than being still in flight. */
   failed?: boolean;
 }): ClosedPasskeyCard {
   const passkeys = input.account?.passkeys ?? [];
+  // The account keeps a way in if it has a password, or if there is another key
+  // left after this one goes. One condition for the whole list rather than per
+  // row, because it is a fact about the account: with two keys and no password
+  // either may go, and with one neither may.
+  const anotherWayIn = (input.account?.hasPassword ?? false) || passkeys.length > 1;
+  const rows = passkeys.map((passkey) => ({ ...passkey, removable: anotherWayIn }));
   return {
     subtitle: subtitleFor(input, passkeys.length),
     // The list is the account's, not the browser's: an instance served over
     // http still holds these keys and still ought to name them. Only the
     // action is unavailable there.
     action: input.account === null ? null : passkeys.length > 0 ? "addAnother" : "add",
-    passkeys,
+    passkeys: rows,
+    explainLastKey: rows.length > 0 && !anotherWayIn,
   };
 }
 

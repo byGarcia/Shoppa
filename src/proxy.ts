@@ -84,6 +84,14 @@ const STRICT_RATE_LIMIT_ROUTES = [
   // one request. The passkey route to the same redemption is the registration
   // prefix above, which is already covered.
   "/api/invitations/redeem",
+  // Retiring a passkey. Session-guarded, so it is not public — but it accepts
+  // the account's current password as proof, and a route that takes a typed
+  // secret belongs among the five whether or not a cookie had to reach it.
+  // Five and not twelve: one honest deletion is ONE request here (the presence
+  // challenge, when there is one, is minted on the registration prefix above
+  // and counted there), so unlike the registration ceremony this budget is not
+  // spent three at a time.
+  "/api/auth/webauthn/credentials",
 ];
 // `/api/invitations/redeem` and NOT `/api/invitations`: the matching is by
 // prefix, so the shorter string would make the CREATION endpoint public too and
