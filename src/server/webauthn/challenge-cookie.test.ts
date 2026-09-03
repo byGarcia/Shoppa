@@ -6,7 +6,7 @@ import { attachChallengeCookie, clearChallengeCookieOn } from "./challenge-cooki
 const ORIGINAL = { ...process.env };
 
 beforeEach(() => {
-  process.env = { ...ORIGINAL, AUTH_SECRET: "secreto-de-prueba-suficientemente-largo" };
+  process.env = { ...ORIGINAL, AUTH_SECRET: "test-secret-long-enough" };
 });
 
 afterEach(() => {
@@ -19,7 +19,7 @@ function withEnv(values: Record<string, string | undefined>): void {
 
 async function writtenCookie() {
   const res = NextResponse.next();
-  await attachChallengeCookie(res, "reto", "login", "usuario-1");
+  await attachChallengeCookie(res, "challenge", "login", "user-1");
   const [cookie] = res.cookies.getAll();
   return cookie;
 }

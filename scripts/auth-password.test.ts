@@ -14,7 +14,7 @@ const ESC = String.fromCharCode(27); // Start of the arrow keys
 const DEL = String.fromCharCode(127); // Backspace
 
 const EMAIL = "rescate-tarea14@example.com";
-const LONG_PASSWORD = "una contraseña larga";
+const LONG_PASSWORD = "a long enough password";
 
 let client: Client;
 
@@ -53,11 +53,11 @@ describe("rescue normalizeEmail", () => {
       "Ana@Example.COM",
       "  ana@example.com  ",
       "\tANA@EXAMPLE.COM\n",
-      "Ana.Garcia+compra@Example.com",
+      "Ana.Garcia+list@Example.com",
       "",
       "   ",
-      "sin-arroba",
-      "MAYÚSCULAS@example.com",
+      "no-at-sign",
+      "CAFÉ@example.com",
     ];
     for (const sample of samples) {
       expect(normalizeEmail(sample)).toBe(normalizeEmailApp(sample));
@@ -67,49 +67,49 @@ describe("rescue normalizeEmail", () => {
 
 describe("readLineFrom", () => {
   it("waits while the newline has not arrived", () => {
-    expect(readLineFrom("medio")).toEqual({ status: "incomplete", value: "medio", rest: "" });
+    expect(readLineFrom("half")).toEqual({ status: "incomplete", value: "half", rest: "" });
   });
 
   it("cuts at the newline and returns the rest", () => {
     // The regression that cost a whole run: pasting the password and its repeat
     // sends both of them in a single chunk. Throwing away what comes after the
     // newline left the second prompt with nothing to read.
-    expect(readLineFrom("clave\nrepetida\n")).toEqual({
+    expect(readLineFrom("secret\nrepeated\n")).toEqual({
       status: "line",
-      value: "clave",
-      rest: "repetida\n",
+      value: "secret",
+      rest: "repeated\n",
     });
   });
 
   it("treats CRLF as a single line ending, not as an empty line behind it", () => {
-    expect(readLineFrom("clave\r\notra")).toEqual({
+    expect(readLineFrom("secret\r\nother")).toEqual({
       status: "line",
-      value: "clave",
-      rest: "otra",
+      value: "secret",
+      rest: "other",
     });
   });
 
   it("applies the deletion", () => {
-    expect(readLineFrom(`clavv${DEL}e\n`).value).toBe("clave");
-    expect(readLineFrom(`${DEL}${DEL}clave\n`).value).toBe("clave");
+    expect(readLineFrom(`secrr${DEL}et\n`).value).toBe("secret");
+    expect(readLineFrom(`${DEL}${DEL}secret\n`).value).toBe("secret");
   });
 
   it("does not let an arrow key get into the password", () => {
     // Dropping only the ESC — what an "ignore the control characters" rule
     // does — would leave "[C" inside the password, invisible to whoever types
     // it and fatal for whoever tries to log in with it later.
-    expect(readLineFrom(`cla${ESC}[Cve\n`).value).toBe("clave");
-    expect(readLineFrom(`cla${ESC}[1;5Dve\n`).value).toBe("clave");
-    expect(readLineFrom(`cla${ESC}OPve\n`).value).toBe("clave");
+    expect(readLineFrom(`sec${ESC}[Cret\n`).value).toBe("secret");
+    expect(readLineFrom(`sec${ESC}[1;5Dret\n`).value).toBe("secret");
+    expect(readLineFrom(`sec${ESC}OPret\n`).value).toBe("secret");
   });
 
   it("a lone ESC does not eat the next character", () => {
-    expect(readLineFrom(`cla${ESC}ve\n`).value).toBe("clave");
+    expect(readLineFrom(`sec${ESC}ret\n`).value).toBe("secret");
   });
 
   it("cancels on Ctrl-C and on Ctrl-D instead of accepting the part already typed", () => {
-    expect(readLineFrom(`media${ETX}`)).toEqual({ status: "cancelled", value: "", rest: "" });
-    expect(readLineFrom(`media${EOT}`)).toEqual({ status: "cancelled", value: "", rest: "" });
+    expect(readLineFrom(`half${ETX}`)).toEqual({ status: "cancelled", value: "", rest: "" });
+    expect(readLineFrom(`half${EOT}`)).toEqual({ status: "cancelled", value: "", rest: "" });
   });
 
   it("counts an accent as one character and not as its two bytes", () => {
@@ -120,8 +120,8 @@ describe("readLineFrom", () => {
   it("deletes the whole emoji and not half a surrogate pair", () => {
     // A plain slice would split the pair and leave an orphan surrogate inside
     // the password that nobody could ever type again.
-    expect(readLineFrom(`clave🔑${DEL}\n`).value).toBe("clave");
-    expect(readLineFrom("clave🔑\n").value).toBe("clave🔑");
+    expect(readLineFrom(`secret🔑${DEL}\n`).value).toBe("secret");
+    expect(readLineFrom("secret🔑\n").value).toBe("secret🔑");
   });
 });
 
@@ -145,10 +145,10 @@ describe("findAccount", () => {
       data: {
         userId: user.id,
         credentialId: "cred-rescate-tarea14",
-        publicKey: "clave",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "Móvil",
+        deviceName: "Phone",
       },
     });
     expect((await findAccount(client, EMAIL))?.passkeys).toBe(1);
@@ -255,7 +255,7 @@ describe("resetPassword", () => {
 
   it("rejects anything below the minimum without touching the row", async () => {
     await createUser();
-    await expect(resetPassword(client, EMAIL, "corta")).rejects.toThrow(
+    await expect(resetPassword(client, EMAIL, "short")).rejects.toThrow(
       new RegExp(String(MIN_PASSWORD_LENGTH)),
     );
     const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });

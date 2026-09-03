@@ -23,7 +23,7 @@ const { passkeyAccountStateFor } = await import("./reauthenticate.ts");
 const { DELETE } = await import("@/app/api/auth/webauthn/credentials/[id]/route.ts");
 
 const ORIGINAL = { ...process.env };
-const PASSWORD = "una contraseña larga";
+const PASSWORD = "a long enough password";
 
 let userId: string;
 
@@ -32,7 +32,7 @@ async function addPasskey(credentialId: string, deviceName = "iPhone"): Promise<
     data: {
       userId,
       credentialId,
-      publicKey: "clave",
+      publicKey: "key",
       counter: 0n,
       transports: ["internal"],
       deviceName,
@@ -57,7 +57,7 @@ beforeEach(async () => {
   process.env = {
     ...ORIGINAL,
     APP_ORIGIN: "https://shopping.example.com",
-    AUTH_SECRET: "secreto-de-prueba-suficientemente-largo",
+    AUTH_SECRET: "test-secret-long-enough",
     AUTH_MODE: "auto",
   };
   vi.clearAllMocks();
@@ -94,7 +94,7 @@ describe("the guard that matters: never leave an account with no way in", () => 
   });
 
   it("with a single passkey and no password, the server refuses", async () => {
-    const id = await addPasskey("la-unica");
+    const id = await addPasskey("the-only-one");
     expect(await deleteOwnCredential(userId, id)).toEqual({
       ok: false,
       reason: "last-credential",
@@ -103,8 +103,8 @@ describe("the guard that matters: never leave an account with no way in", () => 
   });
 
   it("with two, one can be removed", async () => {
-    const first = await addPasskey("una", "iPhone");
-    await addPasskey("otra", "Mac");
+    const first = await addPasskey("one", "iPhone");
+    await addPasskey("other", "Mac");
     expect(await deleteOwnCredential(userId, first)).toEqual({
       ok: true,
       deviceName: "iPhone",
@@ -114,8 +114,8 @@ describe("the guard that matters: never leave an account with no way in", () => 
   });
 
   it("but the second one no longer can: it has become the only one", async () => {
-    const first = await addPasskey("una");
-    const second = await addPasskey("otra", "Mac");
+    const first = await addPasskey("one");
+    const second = await addPasskey("other", "Mac");
     await deleteOwnCredential(userId, first);
     expect(await deleteOwnCredential(userId, second)).toEqual({
       ok: false,
@@ -134,8 +134,8 @@ describe("the guard that matters: never leave an account with no way in", () => 
    * the first has already committed and only one is left.
    */
   it("two deletions at once for the last two: one wins and the account keeps one", async () => {
-    const first = await addPasskey("una", "iPhone");
-    const second = await addPasskey("otra", "Mac");
+    const first = await addPasskey("one", "iPhone");
+    const second = await addPasskey("other", "Mac");
 
     // The other deletion, written by hand so it can be stopped halfway: it
     // takes the account lock, removes ITS credential and sits there without
@@ -171,7 +171,7 @@ describe("the guard that matters: never leave an account with no way in", () => 
       where: { id: userId },
       data: { passwordHash: await hashPassword(PASSWORD) },
     });
-    const id = await addPasskey("la-unica");
+    const id = await addPasskey("the-only-one");
     expect(await deleteOwnCredential(userId, id)).toMatchObject({ ok: true, remaining: 0 });
   });
 
@@ -184,7 +184,7 @@ describe("the guard that matters: never leave an account with no way in", () => 
       where: { id: userId },
       data: { passwordHash: await hashPassword(PASSWORD) },
     });
-    const id = await addPasskey("la-unica");
+    const id = await addPasskey("the-only-one");
     expect(await deleteOwnCredential(userId, id)).toEqual({
       ok: false,
       reason: "last-credential",
@@ -201,17 +201,17 @@ describe("whose the named credential is", () => {
     const theirs = await prisma.webAuthnCredential.create({
       data: {
         userId: otherUser.id,
-        credentialId: "la-de-luis",
-        publicKey: "clave",
+        credentialId: "luis-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "El portátil de Luis",
+        deviceName: "Luis's laptop",
       },
       select: { id: true },
     });
 
     const notMine = await deleteOwnCredential(userId, theirs.id);
-    const madeUp = await deleteOwnCredential(userId, "no-existe-esta-fila");
+    const madeUp = await deleteOwnCredential(userId, "no-such-row");
     // The same response, word for word: the difference between "not yours" and
     // "does not exist" would tell anyone with a session whose a row is.
     expect(notMine).toEqual(madeUp);
@@ -227,10 +227,10 @@ describe("whose the named credential is", () => {
 
   it('a made-up id is not answered with "it is your last one": it does not belong to this account', async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
-    await addPasskey("la-unica");
+    await addPasskey("the-only-one");
     // The account IS in the last-key case, and even so the response talks about
     // the id that was named, not about the state of the account.
-    expect(await deleteOwnCredential(userId, "no-existe-esta-fila")).toEqual({
+    expect(await deleteOwnCredential(userId, "no-such-row")).toEqual({
       ok: false,
       reason: "not-found",
     });
@@ -260,7 +260,7 @@ describe("the route: prove again who you are before deleting", () => {
 
   it("nor with the wrong password", async () => {
     const id = await addPasskey("la-mia");
-    const res = await deleteKey(id, { currentPassword: "no es la suya" });
+    const res = await deleteKey(id, { currentPassword: "not theirs" });
     expect(res.status).toBe(400);
     expect(await prisma.webAuthnCredential.count()).toBe(1);
   });
@@ -275,7 +275,7 @@ describe("the route: prove again who you are before deleting", () => {
   it("the password goes through the same per-account throttle as logging in", async () => {
     const id = await addPasskey("la-mia");
     for (let i = 0; i < MAX_FAILURES; i += 1) {
-      await deleteKey(id, { currentPassword: "no es la suya" });
+      await deleteKey(id, { currentPassword: "not theirs" });
     }
     // Throttled: not even the right one deletes anything while the window lasts.
     const res = await deleteKey(id, { currentPassword: PASSWORD });
@@ -285,11 +285,11 @@ describe("the route: prove again who you are before deleting", () => {
 
   it("an account with no password confirms with a presence assertion", async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
-    const id = await addPasskey("la-que-se-va");
-    await addPasskey("la-que-se-queda", "Mac");
+    const id = await addPasskey("the-one-going");
+    await addPasskey("the-one-staying", "Mac");
     verifyAssertion.mockResolvedValue({ ok: true, user: { id: userId } });
 
-    const res = await deleteKey(id, { presenceAssertion: JSON.stringify({ id: "la-que-se-queda" }) });
+    const res = await deleteKey(id, { presenceAssertion: JSON.stringify({ id: "the-one-staying" }) });
     expect(res.status).toBe(200);
     // "presence", never "login": a login challenge is no good as proof for a
     // change that cannot be undone.
@@ -301,9 +301,9 @@ describe("the route: prove again who you are before deleting", () => {
 
   it("an assertion belonging to another account does not confirm this one", async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
-    const id = await addPasskey("la-que-se-va");
-    await addPasskey("otra", "Mac");
-    verifyAssertion.mockResolvedValue({ ok: true, user: { id: "otra-cuenta" } });
+    const id = await addPasskey("the-one-going");
+    await addPasskey("other", "Mac");
+    verifyAssertion.mockResolvedValue({ ok: true, user: { id: "another-account" } });
 
     const res = await deleteKey(id, { presenceAssertion: "{}" });
     expect(res.status).toBe(400);
@@ -320,17 +320,17 @@ describe("what the route answers", () => {
     const theirs = await prisma.webAuthnCredential.create({
       data: {
         userId: otherUser.id,
-        credentialId: "la-de-luis",
-        publicKey: "clave",
+        credentialId: "luis-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "Suya",
+        deviceName: "Theirs",
       },
       select: { id: true },
     });
 
     const notMine = await deleteKey(theirs.id, { currentPassword: PASSWORD });
-    const madeUp = await deleteKey("no-existe-esta-fila", { currentPassword: PASSWORD });
+    const madeUp = await deleteKey("no-such-row", { currentPassword: PASSWORD });
     expect(notMine.status).toBe(404);
     expect(madeUp.status).toBe(404);
     expect(await notMine.json()).toEqual(await madeUp.json());
@@ -338,7 +338,7 @@ describe("what the route answers", () => {
 
   it("the last key is a 409 with its own code, not a generic error", async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
-    const id = await addPasskey("la-unica");
+    const id = await addPasskey("the-only-one");
     verifyAssertion.mockResolvedValue({ ok: true, user: { id: userId } });
 
     const res = await deleteKey(id, { presenceAssertion: "{}" });
@@ -364,7 +364,7 @@ describe("what the route answers", () => {
 
   it("a rejection writes no deletion row", async () => {
     const id = await addPasskey("la-mia");
-    await deleteKey(id, { currentPassword: "no es la suya" });
+    await deleteKey(id, { currentPassword: "not theirs" });
     expect(await prisma.securityLog.count({ where: { eventType: "PASSKEY_DELETED" } })).toBe(0);
   });
 });

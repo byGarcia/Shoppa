@@ -2,7 +2,7 @@ import { withAuthRequest, ApiResponse, validateRequest } from "@/lib/api-utils";
 import { prisma } from "@/server/db";
 import { clearCheckedSchema } from "@/lib/validations";
 
-// "Vaciar marcados": one tab ({storeId}, null = inbox) or, from the "Todo"
+// "Clear ticked": one tab ({storeId}, null = inbox) or, from the "All"
 // view, every store AND the inbox at once ({all: true}). The
 // union is strict and exclusive: {storeId, all} matches neither branch → 400.
 export const POST = withAuthRequest(async (request) => {

@@ -12,45 +12,45 @@ import {
 
 describe("hashPassword", () => {
   it("produces the versioned format with algorithm and parameters", async () => {
-    const stored = await hashPassword("una contraseña larga");
+    const stored = await hashPassword("a long enough password");
     expect(stored.startsWith("scrypt$N=65536,r=8,p=1$")).toBe(true);
     expect(stored.split("$")).toHaveLength(4);
   });
 
   it("does not reuse the salt, so two hashes of the same thing differ", async () => {
-    const a = await hashPassword("una contraseña larga");
-    const b = await hashPassword("una contraseña larga");
+    const a = await hashPassword("a long enough password");
+    const b = await hashPassword("a long enough password");
     expect(a).not.toBe(b);
   });
 
   it("never stores the password in the clear", async () => {
-    const stored = await hashPassword("una contraseña larga");
-    expect(stored).not.toContain("una contraseña larga");
+    const stored = await hashPassword("a long enough password");
+    expect(stored).not.toContain("a long enough password");
   });
 
   it("rejects passwords below the minimum length", async () => {
-    await expect(hashPassword("corta")).rejects.toThrow(new RegExp(String(MIN_PASSWORD_LENGTH)));
+    await expect(hashPassword("short")).rejects.toThrow(new RegExp(String(MIN_PASSWORD_LENGTH)));
   });
 });
 
 describe("verifyPassword", () => {
   it("accepts the correct one", async () => {
-    const stored = await hashPassword("una contraseña larga");
-    expect(await verifyPassword("una contraseña larga", stored)).toBe(true);
+    const stored = await hashPassword("a long enough password");
+    expect(await verifyPassword("a long enough password", stored)).toBe(true);
   });
 
   it("rejects the wrong one", async () => {
-    const stored = await hashPassword("una contraseña larga");
-    expect(await verifyPassword("otra contraseña larga", stored)).toBe(false);
+    const stored = await hashPassword("a long enough password");
+    expect(await verifyPassword("another long enough password", stored)).toBe(false);
   });
 
   it("does not accept a hash whose parameter field has been tampered with", async () => {
     // The stored key was derived at N=65536; re-deriving at N=16384 yields a
     // different key, so this must be false. It proves the verifier does not
     // ignore the parameter field — but not, on its own, that it reads it.
-    const stored = await hashPassword("una contraseña larga");
+    const stored = await hashPassword("a long enough password");
     const weaker = stored.replace("N=65536,r=8,p=1", "N=16384,r=8,p=1");
-    expect(await verifyPassword("una contraseña larga", weaker)).toBe(false);
+    expect(await verifyPassword("a long enough password", weaker)).toBe(false);
   });
 
   it("verifies a hash genuinely derived with weaker parameters", async () => {
@@ -62,31 +62,31 @@ describe("verifyPassword", () => {
     // scryptSync rather than promisify(scrypt): the promisified overload TypeScript
     // resolves takes no options object, so there is no way to pass N through it.
     const salt = randomBytes(16);
-    const key = scryptSync("una contraseña larga", salt, 64, {
+    const key = scryptSync("a long enough password", salt, 64, {
       N: 16384,
       r: 8,
       p: 1,
       maxmem: 128 * 1024 * 1024,
     });
     const legacy = `scrypt$N=16384,r=8,p=1$${salt.toString("base64")}$${key.toString("base64")}`;
-    expect(await verifyPassword("una contraseña larga", legacy)).toBe(true);
+    expect(await verifyPassword("a long enough password", legacy)).toBe(true);
   });
 
   it("rejects parameters outside the accepted envelope instead of deriving for hours", async () => {
-    const stored = await hashPassword("una contraseña larga");
+    const stored = await hashPassword("a long enough password");
     const absurd = stored.replace("N=65536,r=8,p=1", "N=32768,r=1,p=1015000");
     const started = Date.now();
-    expect(await verifyPassword("una contraseña larga", absurd)).toBe(false);
+    expect(await verifyPassword("a long enough password", absurd)).toBe(false);
     expect(Date.now() - started).toBeLessThan(1000);
   });
 
   it("returns false for a null hash, which is what a passkey-only user has", async () => {
-    expect(await verifyPassword("una contraseña larga", null as unknown as string)).toBe(false);
+    expect(await verifyPassword("a long enough password", null as unknown as string)).toBe(false);
   });
 
   it("returns false for a corrupt hash instead of blowing up", async () => {
-    expect(await verifyPassword("una contraseña larga", "basura")).toBe(false);
-    expect(await verifyPassword("una contraseña larga", "scrypt$N=x$y$z")).toBe(false);
+    expect(await verifyPassword("a long enough password", "basura")).toBe(false);
+    expect(await verifyPassword("a long enough password", "scrypt$N=x$y$z")).toBe(false);
   });
 });
 

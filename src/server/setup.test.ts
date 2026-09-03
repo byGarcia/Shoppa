@@ -12,7 +12,7 @@ afterEach(() => {
 beforeEach(async () => {
   process.env = {
     ...ORIGINAL,
-    AUTH_SECRET: "secreto-de-prueba-suficientemente-largo",
+    AUTH_SECRET: "test-secret-long-enough",
     SETUP_TOKEN: undefined,
   };
   await prisma.webAuthnCredential.deleteMany();
@@ -38,22 +38,22 @@ describe("the setup token", () => {
   }
 
   it("two copies of the module give the same token: not memoised, derived", async () => {
-    process.env.AUTH_SECRET = "secreto-de-prueba-suficientemente-largo";
+    process.env.AUTH_SECRET = "test-secret-long-enough";
     expect(await tokenFromAFreshCopy()).toBe(await tokenFromAFreshCopy());
   });
 
   it("changes if AUTH_SECRET changes, and does not reveal it", async () => {
-    process.env.AUTH_SECRET = "un-secreto";
+    process.env.AUTH_SECRET = "a-secret";
     const a = await tokenFromAFreshCopy();
-    process.env.AUTH_SECRET = "otro-secreto";
+    process.env.AUTH_SECRET = "another-secret";
     const b = await tokenFromAFreshCopy();
     expect(a).not.toBe(b);
-    expect(a).not.toContain("un-secreto");
+    expect(a).not.toContain("a-secret");
   });
 
   it("an explicit SETUP_TOKEN wins over the derivation", async () => {
-    process.env.SETUP_TOKEN = "el-mio";
-    expect(await tokenFromAFreshCopy()).toBe("el-mio");
+    process.env.SETUP_TOKEN = "mine";
+    expect(await tokenFromAFreshCopy()).toBe("mine");
   });
 
   it("with neither AUTH_SECRET nor SETUP_TOKEN it throws naming the variable", async () => {
@@ -70,9 +70,9 @@ describe("claiming the instance", () => {
 
   it("rejects a wrong setup token", async () => {
     const result = await claimInstance({
-      token: "no-es-el-token",
+      token: "not-the-token",
       email: "ana@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result).toEqual({ ok: false, reason: "bad-token" });
     expect(await prisma.user.count()).toBe(0);
@@ -82,7 +82,7 @@ describe("claiming the instance", () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "ana@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result.ok).toBe(true);
     expect(await isClaimed()).toBe(true);
@@ -92,8 +92,8 @@ describe("claiming the instance", () => {
   it("of two simultaneous claims only one succeeds, and no half user is left behind", async () => {
     const token = setupToken();
     const [a, b] = await Promise.all([
-      claimInstance({ token, email: "ana@example.com", password: "una contraseña larga" }),
-      claimInstance({ token, email: "luis@example.com", password: "otra contraseña larga" }),
+      claimInstance({ token, email: "ana@example.com", password: "a long enough password" }),
+      claimInstance({ token, email: "luis@example.com", password: "another long enough password" }),
     ]);
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
     expect(await prisma.user.count()).toBe(1);
@@ -129,7 +129,7 @@ describe("claiming the instance", () => {
     const late = claimInstance({
       token: setupToken(),
       email: "luis@example.com",
-      password: "otra contraseña larga",
+      password: "another long enough password",
     });
     // Plenty of time for the late claim's UPDATE to reach the lock.
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -142,11 +142,11 @@ describe("claiming the instance", () => {
 
   it("once claimed, it is not claimed again", async () => {
     const token = setupToken();
-    await claimInstance({ token, email: "ana@example.com", password: "una contraseña larga" });
+    await claimInstance({ token, email: "ana@example.com", password: "a long enough password" });
     const second = await claimInstance({
       token,
       email: "luis@example.com",
-      password: "otra contraseña larga",
+      password: "another long enough password",
     });
     expect(second).toEqual({ ok: false, reason: "already-claimed" });
   });
@@ -159,7 +159,7 @@ describe("claiming the instance", () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "ana@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result.ok).toBe(false);
     expect(await prisma.user.count()).toBe(0);
@@ -169,7 +169,7 @@ describe("claiming the instance", () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "  Ana@Example.COM  ",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result.ok).toBe(true);
     const user = await prisma.user.findFirst({ select: { email: true } });
@@ -180,13 +180,13 @@ describe("claiming the instance", () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "ana@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
       credential: {
-        credentialId: "credencial-de-prueba",
-        publicKey: "clave-publica",
+        credentialId: "test-credential",
+        publicKey: "public-key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "Dispositivo de prueba",
+        deviceName: "Test device",
       },
     });
     expect(result.ok).toBe(true);
@@ -213,7 +213,7 @@ describe("claiming the instance", () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "intrusa@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result).toEqual({ ok: false, reason: "already-claimed" });
     expect(await prisma.user.count()).toBe(1);

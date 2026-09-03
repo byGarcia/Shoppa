@@ -75,7 +75,7 @@ beforeEach(async () => {
   process.env = {
     ...ORIGINAL,
     APP_ORIGIN: "https://shopping.example.com",
-    AUTH_SECRET: "secreto-de-prueba-suficientemente-largo",
+    AUTH_SECRET: "test-secret-long-enough",
     AUTH_MODE: "auto",
   };
   vi.clearAllMocks();
@@ -91,7 +91,7 @@ beforeEach(async () => {
     create: { id: "singleton", claimedAt: new Date() },
   });
   const user = await prisma.user.create({
-    data: { email: "ana@example.com", passwordHash: await hashPassword("una contraseña larga") },
+    data: { email: "ana@example.com", passwordHash: await hashPassword("a long enough password") },
     select: { id: true },
   });
   userId = user.id;
@@ -99,7 +99,7 @@ beforeEach(async () => {
   // With the proof of identity already given in the options step: that is what
   // register-verify demands, and it travels inside the signed JWT.
   challenge.mockResolvedValue({
-    challenge: "reto",
+    challenge: "challenge",
     scope: "register",
     userId,
     reauthenticated: true,
@@ -108,21 +108,21 @@ beforeEach(async () => {
     verified: true,
     registrationInfo: {
       credential: {
-        id: "credencial-nueva",
+        id: "new-credential",
         publicKey: new Uint8Array([1, 2, 3, 4]),
         counter: 0,
         transports: ["internal"],
       },
     },
   });
-  generateRegistrationOptions.mockResolvedValue({ challenge: "reto" });
+  generateRegistrationOptions.mockResolvedValue({ challenge: "challenge" });
 });
 
 afterEach(() => {
   process.env = { ...ORIGINAL };
 });
 
-const attestation = JSON.stringify({ id: "credencial-nueva" });
+const attestation = JSON.stringify({ id: "new-credential" });
 
 describe("passkey registration authorized by the session", () => {
   it("creates the credential and deletes the password in the same transaction", async () => {
@@ -160,7 +160,7 @@ describe("passkey registration authorized by the session", () => {
 
   it("an invitation that does not exist is rejected, it does not fall into another branch", async () => {
     const handler = makeRegisterVerifyHandler(deps(null));
-    const res = await handler(request({ attestation, invitationToken: "lo-que-sea" }));
+    const res = await handler(request({ attestation, invitationToken: "whatever" }));
     expect(res.status).toBe(401);
   });
 
@@ -175,9 +175,9 @@ describe("passkey registration authorized by the session", () => {
 
   it("a challenge issued for another account cannot be used to hang a credential on it", async () => {
     challenge.mockResolvedValue({
-      challenge: "reto",
+      challenge: "challenge",
       scope: "register",
-      userId: "otra-cuenta",
+      userId: "another-account",
       reauthenticated: true,
     });
     const handler = makeRegisterVerifyHandler(deps({ user: { id: userId, email: "ana@example.com" } }));
@@ -188,7 +188,7 @@ describe("passkey registration authorized by the session", () => {
 
   it("a login challenge is no good for registering", async () => {
     challenge.mockResolvedValue({
-      challenge: "reto",
+      challenge: "challenge",
       scope: "login",
       userId,
       reauthenticated: true,
@@ -228,14 +228,14 @@ describe("proving again who you are before registering", () => {
 
   it("nor with the wrong password", async () => {
     const handler = makeRegisterOptionsHandler(deps(session()));
-    const res = await handler(request({ currentPassword: "no es la suya" }));
+    const res = await handler(request({ currentPassword: "not theirs" }));
     expect(res.status).toBe(400);
     expect(generateRegistrationOptions).not.toHaveBeenCalled();
   });
 
   it("with the right password it issues the challenge marked as confirmed", async () => {
     const handler = makeRegisterOptionsHandler(deps(session()));
-    const res = await handler(request({ currentPassword: "una contraseña larga" }));
+    const res = await handler(request({ currentPassword: "a long enough password" }));
     expect(res.status).toBe(200);
     expect(cookiesWritten).toEqual([
       { scope: "register", userId, reauthenticated: true },
@@ -247,8 +247,8 @@ describe("proving again who you are before registering", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId,
-        credentialId: "la-que-ya-tenia",
-        publicKey: "clave",
+        credentialId: "the-one-already-there",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: "Antigua",
@@ -257,7 +257,7 @@ describe("proving again who you are before registering", () => {
     verifyAssertion.mockResolvedValue({ ok: true, user: { id: userId } });
 
     const handler = makeRegisterOptionsHandler(deps(session()));
-    const res = await handler(request({ presenceAssertion: JSON.stringify({ id: "la-que-ya-tenia" }) }));
+    const res = await handler(request({ presenceAssertion: JSON.stringify({ id: "the-one-already-there" }) }));
     expect(res.status).toBe(200);
     // "presence", never "login": a sign-in challenge cannot count as proof for
     // an irreversible change.
@@ -274,14 +274,14 @@ describe("proving again who you are before registering", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId,
-        credentialId: "la-que-ya-tenia",
-        publicKey: "clave",
+        credentialId: "the-one-already-there",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: "Antigua",
       },
     });
-    verifyAssertion.mockResolvedValue({ ok: true, user: { id: "otra-cuenta" } });
+    verifyAssertion.mockResolvedValue({ ok: true, user: { id: "another-account" } });
 
     const handler = makeRegisterOptionsHandler(deps(session()));
     const res = await handler(request({ presenceAssertion: "{}" }));
@@ -295,10 +295,10 @@ describe("proving again who you are before registering", () => {
   it("the confirmation password goes through the same brake as sign-in", async () => {
     const handler = makeRegisterOptionsHandler(deps(session()));
     for (let i = 0; i < MAX_FAILURES; i += 1) {
-      await handler(request({ currentPassword: "no es la suya" }));
+      await handler(request({ currentPassword: "not theirs" }));
     }
     // Throttled: not even the right one issues a challenge while the window lasts.
-    const res = await handler(request({ currentPassword: "una contraseña larga" }));
+    const res = await handler(request({ currentPassword: "a long enough password" }));
     expect(res.status).toBe(400);
     expect(generateRegistrationOptions).not.toHaveBeenCalled();
   });
@@ -308,8 +308,8 @@ describe("proving again who you are before registering", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId,
-        credentialId: "la-que-ya-tenia",
-        publicKey: "clave",
+        credentialId: "the-one-already-there",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: "Antigua",
@@ -327,7 +327,7 @@ describe("proving again who you are before registering", () => {
   });
 
   it("a challenge issued without confirmation cannot be spent on the step that writes", async () => {
-    challenge.mockResolvedValue({ challenge: "reto", scope: "register", userId });
+    challenge.mockResolvedValue({ challenge: "challenge", scope: "register", userId });
     const handler = makeRegisterVerifyHandler(deps(session()));
     const res = await handler(request({ attestation }));
     expect(res.status).toBe(401);
@@ -345,7 +345,7 @@ describe("proving again who you are before registering", () => {
   });
 
   it("the challenge is burned even when the request fails", async () => {
-    challenge.mockResolvedValue({ challenge: "reto", scope: "login", userId });
+    challenge.mockResolvedValue({ challenge: "challenge", scope: "login", userId });
     const handler = makeRegisterVerifyHandler(deps(session()));
     await handler(request({ attestation }));
     // A challenge that survives its own rejection is one that can be retried.
@@ -356,8 +356,8 @@ describe("proving again who you are before registering", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId,
-        credentialId: "credencial-nueva",
-        publicKey: "clave",
+        credentialId: "new-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: "Ya estaba",
@@ -384,7 +384,7 @@ describe("what the card can ask about its own account", () => {
       data: {
         userId,
         credentialId,
-        publicKey: "clave",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: extra.deviceName ?? "Antigua",
@@ -405,7 +405,7 @@ describe("what the card can ask about its own account", () => {
 
   it("a migrated account — a passkey and no password — says it has none", async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
-    await addPasskey("la-que-ya-tenia");
+    await addPasskey("the-one-already-there");
     const state = await passkeyAccountStateFor(userId);
     expect(state.reauth).toBe("presence");
     expect(state.hasPassword).toBe(false);
@@ -414,8 +414,8 @@ describe("what the card can ask about its own account", () => {
 
   it("counts the passkeys that already exist, which is what decides whether this one is one more", async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
-    await addPasskey("una");
-    await addPasskey("otra");
+    await addPasskey("one");
+    await addPasskey("other");
     const state = await passkeyAccountStateFor(userId);
     expect(state.passkeyCount).toBe(2);
     expect(state.hasPassword).toBe(false);
@@ -467,11 +467,11 @@ describe("what the card can ask about its own account", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId: otherUser.id,
-        credentialId: "la-de-luis",
-        publicKey: "clave",
+        credentialId: "luis-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "Suya",
+        deviceName: "Theirs",
       },
     });
     const state = await passkeyAccountStateFor(userId);
@@ -498,7 +498,7 @@ describe("the passkeys it returns so they can be rendered", () => {
       data: {
         userId,
         credentialId,
-        publicKey: "clave-publica-secreta",
+        publicKey: "secret-public-key",
         counter: 7n,
         transports: ["internal", "hybrid"],
         deviceName,
@@ -508,7 +508,7 @@ describe("the passkeys it returns so they can be rendered", () => {
   }
 
   it("gives the row id, the device name and both dates, in ISO", async () => {
-    await addPasskey("la-del-movil", "iPhone", { createdAt: EARLIER, lastUsedAt: LATER });
+    await addPasskey("the-phone-one", "iPhone", { createdAt: EARLIER, lastUsedAt: LATER });
     const row = await prisma.webAuthnCredential.findFirstOrThrow({ select: { id: true } });
     const [passkey] = (await passkeyAccountStateFor(userId)).passkeys;
     expect(passkey).toEqual({
@@ -520,27 +520,27 @@ describe("the passkeys it returns so they can be rendered", () => {
   });
 
   it("carries neither the credential id, nor the public key, nor the counter", async () => {
-    await addPasskey("la-del-movil", "iPhone");
+    await addPasskey("the-phone-one", "iPhone");
     const json = JSON.stringify((await passkeyAccountStateFor(userId)).passkeys);
     // The handle that DOES go out is the ROW id, which is what the delete route
     // accepts. The credential one is the authenticator's public identifier and
     // there is no screen that uses it.
-    expect(json).not.toContain("la-del-movil");
-    expect(json).not.toContain("clave-publica-secreta");
+    expect(json).not.toContain("the-phone-one");
+    expect(json).not.toContain("secret-public-key");
     expect(json).not.toContain("counter");
     expect(json).not.toContain("transports");
   });
 
   it("returns them from the newest to the oldest", async () => {
     await addPasskey("vieja", "Mac", { createdAt: EARLIER, lastUsedAt: EARLIER });
-    await addPasskey("nueva", "iPhone", { createdAt: LATER, lastUsedAt: LATER });
+    await addPasskey("new", "iPhone", { createdAt: LATER, lastUsedAt: LATER });
     const state = await passkeyAccountStateFor(userId);
     expect(state.passkeys.map((p) => p.deviceName)).toEqual(["iPhone", "Mac"]);
   });
 
   it("the count and the list are the same fact: they cannot disagree", async () => {
-    await addPasskey("una", "iPhone");
-    await addPasskey("otra", "Mac");
+    await addPasskey("one", "iPhone");
+    await addPasskey("other", "Mac");
     const state = await passkeyAccountStateFor(userId);
     expect(state.passkeyCount).toBe(state.passkeys.length);
   });
@@ -548,8 +548,8 @@ describe("the passkeys it returns so they can be rendered", () => {
   it("one just registered comes out as never used, not as used today", async () => {
     // Both columns default to CURRENT_TIMESTAMP and are filled in the same
     // statement, so equality is what tells "brand new" apart from "used": it is
-    // where the card gets "Nunca usada" from.
-    await addPasskey("sin-estrenar", "Windows");
+    // where the card gets "Never used" from.
+    await addPasskey("brand-new", "Windows");
     const [passkey] = (await passkeyAccountStateFor(userId)).passkeys;
     expect(passkey.lastUsedAt).toBe(passkey.createdAt);
     expect(passkeyUse(passkey)).toEqual({ key: "neverUsed" });
@@ -563,11 +563,11 @@ describe("the passkeys it returns so they can be rendered", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId: otherUser.id,
-        credentialId: "la-de-luis",
-        publicKey: "clave",
+        credentialId: "luis-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "El portátil de Luis",
+        deviceName: "Luis's laptop",
       },
     });
     await addPasskey("la-mia", "iPhone");
@@ -586,8 +586,8 @@ describe("the Settings card of an account that already signs in with a passkey",
     await prisma.webAuthnCredential.create({
       data: {
         userId,
-        credentialId: "la-de-cada-mañana",
-        publicKey: "clave",
+        credentialId: "the-everyday-one",
+        publicKey: "key",
         counter: 3n,
         transports: ["internal"],
         deviceName: "iPhone",
@@ -608,7 +608,7 @@ describe("passkey registration on the first start-up", () => {
     await prisma.webAuthnCredential.deleteMany();
     await prisma.user.deleteMany();
     await prisma.instanceSetup.update({ where: { id: "singleton" }, data: { claimedAt: null } });
-    challenge.mockResolvedValue({ challenge: "reto", scope: "register", userId: undefined });
+    challenge.mockResolvedValue({ challenge: "challenge", scope: "register", userId: undefined });
   });
 
   it("with the right token it creates the account with no password hash", async () => {
@@ -626,7 +626,7 @@ describe("passkey registration on the first start-up", () => {
   it("the verify step checks the token again, it does not trust the first one", async () => {
     const handler = makeRegisterVerifyHandler(deps(null));
     const res = await handler(
-      request({ attestation, setupToken: "no-es-el-token", email: "ana@example.com" }),
+      request({ attestation, setupToken: "not-the-token", email: "ana@example.com" }),
     );
     expect(res.status).toBe(401);
     expect(await prisma.user.count()).toBe(0);
@@ -634,7 +634,7 @@ describe("passkey registration on the first start-up", () => {
 
   it("issuing options with a wrong token does not get past the door either", async () => {
     const handler = makeRegisterOptionsHandler(deps(null));
-    const res = await handler(request({ setupToken: "no-es-el-token", email: "ana@example.com" }));
+    const res = await handler(request({ setupToken: "not-the-token", email: "ana@example.com" }));
     expect(res.status).toBe(401);
     expect(generateRegistrationOptions).not.toHaveBeenCalled();
   });
@@ -648,7 +648,7 @@ describe("passkey registration on the first start-up", () => {
 
   it("a challenge tied to an account cannot be used to claim the instance", async () => {
     challenge.mockResolvedValue({
-      challenge: "reto",
+      challenge: "challenge",
       scope: "register",
       userId: "alguien",
       reauthenticated: true,
@@ -670,7 +670,7 @@ describe("passkey registration by invitation", () => {
 
   beforeEach(async () => {
     token = (await createInvitation(userId)).token;
-    challenge.mockResolvedValue({ challenge: "reto", scope: "register", userId: undefined });
+    challenge.mockResolvedValue({ challenge: "challenge", scope: "register", userId: undefined });
   });
 
   const invitedBody = { attestation, email: "Luis@Example.com" };
@@ -754,7 +754,7 @@ describe("passkey registration by invitation", () => {
 
   it("a challenge tied to an account cannot be used to redeem an invitation", async () => {
     challenge.mockResolvedValue({
-      challenge: "reto",
+      challenge: "challenge",
       scope: "register",
       userId: "alguien",
       reauthenticated: true,
@@ -770,8 +770,8 @@ describe("passkey registration by invitation", () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId,
-        credentialId: "credencial-nueva",
-        publicKey: "clave",
+        credentialId: "new-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: "Ya estaba",

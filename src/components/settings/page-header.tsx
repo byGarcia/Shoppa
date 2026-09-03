@@ -8,8 +8,8 @@ type Props = {
   back?: string;
 };
 
-/** Back-chevron + Fraunces title used across the Ajustes sub-pages. */
-export function PageHeader({ title, subtitle, back = "/ajustes" }: Props) {
+/** Back-chevron + Fraunces title used across the Settings sub-pages. */
+export function PageHeader({ title, subtitle, back = "/settings" }: Props) {
   const t = useTranslations("common");
 
   return (

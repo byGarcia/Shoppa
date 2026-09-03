@@ -78,7 +78,7 @@ describe("scheduler", () => {
   });
 
   it("an unreadable expression stops startup instead of silently doing nothing", () => {
-    process.env.PRICE_CHECK_CRON = "todos los días";
+    process.env.PRICE_CHECK_CRON = "every day";
     expect(() => nextRunAt(new Date())).toThrow(/PRICE_CHECK_CRON/);
   });
 });
@@ -222,7 +222,7 @@ describe("the timer", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    runPriceCheck.mockRejectedValue(new Error("la base de datos no responde"));
+    runPriceCheck.mockRejectedValue(new Error("the database is not answering"));
 
     startPriceScheduler();
     await vi.advanceTimersByTimeAsync(61_000);
@@ -248,7 +248,7 @@ describe("the timer", () => {
 
   it("an unreadable expression arms nothing and says so in the log", () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T00:00:00Z") });
-    process.env.PRICE_CHECK_CRON = "todos los días";
+    process.env.PRICE_CHECK_CRON = "every day";
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
 
     startPriceScheduler();
@@ -350,7 +350,7 @@ describe("the appointment that already went by", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    runHistory.mockRejectedValue(new Error("la base de datos aún no está arriba"));
+    runHistory.mockRejectedValue(new Error("the database is not up yet"));
 
     startPriceScheduler();
     await vi.advanceTimersByTimeAsync(0);

@@ -53,13 +53,13 @@ describe("per-account throttle", () => {
 
 describe("instance ceiling", () => {
   it("throttles everything when failures per minute spike, even from different accounts", () => {
-    for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
-    expect(isThrottled("nueva@example.com")).toBe(true);
+    for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`account${i}@example.com`);
+    expect(isThrottled("new@example.com")).toBe(true);
   });
 
   it("does not shut out anyone who has already logged in once: the ceiling is not a global lockout", () => {
     recordSuccess("ana@example.com");
-    for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
+    for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`account${i}@example.com`);
     expect(isThrottled("ana@example.com")).toBe(false);
     expect(isThrottled("nadie@example.com")).toBe(true);
   });
@@ -89,9 +89,9 @@ describe("instance ceiling", () => {
   });
 
   it("the ceiling releases after a minute", () => {
-    for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
+    for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`account${i}@example.com`);
     vi.advanceTimersByTime(60_000 + 1);
-    expect(isThrottled("nueva@example.com")).toBe(false);
+    expect(isThrottled("new@example.com")).toBe(false);
   });
 });
 
@@ -123,7 +123,7 @@ describe("per-route ceiling", () => {
   });
 
   it("the per-account throttle does not touch it", () => {
-    for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
+    for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) recordFailure(`account${i}@example.com`);
     expect(checkRouteCeiling("/login")).toBe(true);
   });
 });

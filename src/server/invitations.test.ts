@@ -55,13 +55,13 @@ describe("invitations", () => {
     const first = await redeemInvitation({
       token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(first.ok).toBe(true);
     const second = await redeemInvitation({
       token,
-      email: "otro@example.com",
-      password: "otra contraseña larga",
+      email: "other@example.com",
+      password: "another long enough password",
     });
     expect(second).toEqual({ ok: false, reason: "used" });
     expect(await newUsers()).toBe(1);
@@ -74,7 +74,7 @@ describe("invitations", () => {
       await redeemInvitation({
         token,
         email: "luis@example.com",
-        password: "una contraseña larga",
+        password: "a long enough password",
       }),
     ).toEqual({ ok: false, reason: "expired" });
   });
@@ -86,16 +86,16 @@ describe("invitations", () => {
   it("an expired one is not spent: it stays unused", async () => {
     const { token } = await createInvitation(inviterId);
     await prisma.invitation.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
-    await redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" });
+    await redeemInvitation({ token, email: "luis@example.com", password: "a long enough password" });
     expect((await prisma.invitation.findFirst())?.usedAt).toBeNull();
   });
 
   it("a made-up token creates no user", async () => {
     const before = await prisma.user.count();
     const result = await redeemInvitation({
-      token: "inventado",
+      token: "made-up",
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result).toEqual({ ok: false, reason: "unknown" });
     expect(await prisma.user.count()).toBe(before);
@@ -129,7 +129,7 @@ describe("invitations", () => {
     const result = await redeemInvitation({
       token,
       email: "  Luis@Example.COM  ",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result.ok).toBe(true);
     const user = await prisma.user.findFirst({ where: { email: "luis@example.com" } });
@@ -155,7 +155,7 @@ describe("invitations", () => {
     const clash = await redeemInvitation({
       token,
       email: "ANA@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(clash).toEqual({ ok: false, reason: "email-taken" });
     expect((await prisma.invitation.findFirst())?.usedAt).toBeNull();
@@ -163,7 +163,7 @@ describe("invitations", () => {
     const good = await redeemInvitation({
       token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(good.ok).toBe(true);
   });
@@ -173,13 +173,13 @@ describe("invitations", () => {
     const result = await redeemInvitation({
       token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
       credential: {
-        credentialId: "credencial-de-invitado",
-        publicKey: "clave-publica",
+        credentialId: "guest-credential",
+        publicKey: "public-key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "Dispositivo de prueba",
+        deviceName: "Test device",
       },
     });
     expect(result.ok).toBe(true);
@@ -203,7 +203,7 @@ describe("invitations", () => {
       await redeemInvitation({
         token,
         email: "luis@example.com",
-        password: "una contraseña larga",
+        password: "a long enough password",
       }),
     ).toEqual({ ok: false, reason: "unknown" });
   });
@@ -217,18 +217,18 @@ describe("invitations", () => {
       (await redeemInvitation({
         token,
         email: "luis@example.com",
-        password: "una contraseña larga",
+        password: "a long enough password",
       })).ok,
     ).toBe(true);
     expect(await inspectInvitation(token)).toEqual({ ok: false, reason: "used" });
-    expect(await inspectInvitation("inventado")).toEqual({ ok: false, reason: "unknown" });
+    expect(await inspectInvitation("made-up")).toEqual({ ok: false, reason: "unknown" });
   });
 
   it("of two simultaneous redemptions only one goes through", async () => {
     const { token } = await createInvitation(inviterId);
     const [a, b] = await Promise.all([
-      redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" }),
-      redeemInvitation({ token, email: "eva@example.com", password: "otra contraseña larga" }),
+      redeemInvitation({ token, email: "luis@example.com", password: "a long enough password" }),
+      redeemInvitation({ token, email: "eva@example.com", password: "another long enough password" }),
     ]);
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
     expect(await newUsers()).toBe(1);
@@ -268,7 +268,7 @@ describe("invitations", () => {
     const late = redeemInvitation({
       token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     // Plenty of time for the late one's UPDATE to reach the lock.
     await new Promise((resolve) => setTimeout(resolve, 200));
@@ -290,9 +290,9 @@ describe("invitations", () => {
 describe("what a made-up token costs", () => {
   it("a token that does not exist derives no key", async () => {
     const result = await redeemInvitation({
-      token: "inventado",
+      token: "made-up",
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(result).toEqual({ ok: false, reason: "unknown" });
     expect(derivations.n).toBe(0);
@@ -304,27 +304,27 @@ describe("what a made-up token costs", () => {
     await redeemInvitation({
       token: expired.token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
 
     const used = await createInvitation(inviterId);
     await redeemInvitation({
       token: used.token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     const derivationsSoFar = derivations.n;
     await redeemInvitation({
       token: used.token,
       email: "eva@example.com",
-      password: "otra contraseña larga",
+      password: "another long enough password",
     });
     expect(derivations.n).toBe(derivationsSoFar);
   });
 
   it("a good invitation does derive: the preceding read replaces nothing", async () => {
     const { token } = await createInvitation(inviterId);
-    await redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" });
+    await redeemInvitation({ token, email: "luis@example.com", password: "a long enough password" });
     expect(derivations.n).toBe(1);
   });
 
@@ -359,7 +359,7 @@ describe("what a made-up token costs", () => {
     const late = redeemInvitation({
       token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     await new Promise((resolve) => setTimeout(resolve, 200));
     release();
@@ -379,10 +379,10 @@ describe("which unique index the rejection comes from", () => {
       data: {
         userId: inviterId,
         credentialId: "ya-registrada",
-        publicKey: "clave",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "La de Ana",
+        deviceName: "Ana's",
       },
     });
     const { token } = await createInvitation(inviterId);
@@ -391,10 +391,10 @@ describe("which unique index the rejection comes from", () => {
       email: "luis@example.com",
       credential: {
         credentialId: "ya-registrada",
-        publicKey: "clave",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "La de Luis",
+        deviceName: "Luis's",
       },
     });
     expect(result).toEqual({ ok: false, reason: "credential-taken" });
@@ -414,7 +414,7 @@ describe("seeing and withdrawing invitations", () => {
     const redemption = await redeemInvitation({
       token,
       email: "luis@example.com",
-      password: "una contraseña larga",
+      password: "a long enough password",
     });
     expect(redemption.ok).toBe(true);
 
@@ -430,8 +430,8 @@ describe("seeing and withdrawing invitations", () => {
       token,
       email: "luis@example.com",
       credential: {
-        credentialId: "la-de-luis",
-        publicKey: "clave",
+        credentialId: "luis-credential",
+        publicKey: "key",
         counter: 0n,
         transports: ["internal"],
         deviceName: "un teléfono",
@@ -459,7 +459,7 @@ describe("seeing and withdrawing invitations", () => {
       await redeemInvitation({
         token,
         email: "luis@example.com",
-        password: "una contraseña larga",
+        password: "a long enough password",
       }),
     ).toEqual({ ok: false, reason: "used" });
     expect(await newUsers()).toBe(0);
@@ -467,7 +467,7 @@ describe("seeing and withdrawing invitations", () => {
 
   it("revoking an already used one does not go through and does not erase who came in", async () => {
     const { token } = await createInvitation(inviterId);
-    await redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" });
+    await redeemInvitation({ token, email: "luis@example.com", password: "a long enough password" });
     const [row] = await listInvitations();
 
     expect(await revokeInvitation(row.id)).toBe(false);
@@ -478,7 +478,7 @@ describe("seeing and withdrawing invitations", () => {
   });
 
   it("revoking something that does not exist does not go through", async () => {
-    expect(await revokeInvitation("no-es-un-id")).toBe(false);
+    expect(await revokeInvitation("not-an-id")).toBe(false);
   });
 
   it("an unused expired one shows as expired, not as revoked", async () => {

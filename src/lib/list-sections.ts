@@ -22,7 +22,7 @@ function compareStoreMode(a: ItemDTO, b: ItemDTO): number {
 }
 
 /**
- * "Todo" order inside a section: unchecked first → store.order asc with the
+ * "All" order inside a section: unchecked first → store.order asc with the
  * inbox last (order = Infinity: store items are what you are going to buy;
  * the inbox is couch work) → createdAt asc. Compare orders with <, never by
  * subtraction: Infinity - Infinity is NaN and would corrupt the sort.

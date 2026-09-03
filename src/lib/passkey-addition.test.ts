@@ -101,13 +101,13 @@ describe("which copy is shown in each case", () => {
 const IPHONE: PasskeyListEntry = {
   // The ROW id, which is what the delete route accepts. Never the credential
   // id: that one never leaves src/server/webauthn.
-  id: "fila-del-iphone",
+  id: "iphone-row",
   deviceName: "iPhone",
   createdAt: "2026-06-01T09:00:00.000Z",
   lastUsedAt: "2026-09-02T07:14:00.000Z",
 };
 const NEVER_SIGNED_IN: PasskeyListEntry = {
-  id: "fila-del-mac",
+  id: "mac-row",
   deviceName: "Mac",
   // Both columns default to `now()`: a credential that has never signed in
   // still carries its creation time in `last_used_at`.
@@ -177,7 +177,7 @@ describe("which rows can be removed", () => {
 
   it("each row carries its own row id, which is the handle the route accepts", () => {
     const card = closedPasskeyCard({ available: true, account: migratedAccount([IPHONE, NEVER_SIGNED_IN]) });
-    expect(card.passkeys.map((p) => p.id)).toEqual(["fila-del-iphone", "fila-del-mac"]);
+    expect(card.passkeys.map((p) => p.id)).toEqual(["iphone-row", "mac-row"]);
   });
 
   // Hiding the trash button is a courtesy, not the guard: another tab holding
@@ -213,7 +213,7 @@ describe("the closed Settings card", () => {
     expect(oneKey.subtitle).toEqual({ key: "subtitleCount", count: 1 });
     const threeKeys = closedPasskeyCard({
       available: true,
-      account: migratedAccount([IPHONE, NEVER_SIGNED_IN, { ...IPHONE, id: "otra-fila" }]),
+      account: migratedAccount([IPHONE, NEVER_SIGNED_IN, { ...IPHONE, id: "another-row" }]),
     });
     expect(threeKeys.subtitle).toEqual({ key: "subtitleCount", count: 3 });
   });

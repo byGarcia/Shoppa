@@ -13,7 +13,7 @@ type Props = {
   onSelect: (key: string) => void;
 };
 
-/** Neutral pending-count badge (stores + "Todo"); hidden at zero like the inbox one. */
+/** Neutral pending-count badge (stores + "All"); hidden at zero like the inbox one. */
 function CountBadge({ count }: { count: number }) {
   if (count === 0) return null;
   return (
@@ -31,7 +31,7 @@ export function StoreTabs({ stores, active, pendingByStore, onSelect }: Props) {
 
   return (
     <nav className="cw -mx-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label={t("storesLabel")}>
-      {/* D1: "Todo" first. No color dot (the dot marks store identity); same
+      {/* D1: "All" first. No color dot (the dot marks store identity); same
           active/inactive treatment as a store tab, not the inbox's dashed one. */}
       <button
         onClick={() => onSelect("all")}

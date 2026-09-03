@@ -30,7 +30,7 @@ export function ListScreen() {
 
   // Last-used tab, hydrated from localStorage only once stores are known.
   const [active, setActive] = useActiveTab(stores, storesReady);
-  // Remembered destination for adds from the "Todo" view.
+  // Remembered destination for adds from the "All" view.
   const [addDest, setAddDest] = useAddDestination(stores, storesReady);
   const [editing, setEditing] = useState<ItemDTO | null>(null);
 
@@ -103,14 +103,14 @@ export function ListScreen() {
         {/* justify-between splits title vs actions: the two icons travel together. */}
         <div className="flex shrink-0 items-center gap-2">
           <Link
-            href="/precios"
+            href="/prices"
             aria-label={t("pricesLabel")}
             className="tap-press flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-line bg-surface text-ink-2 shadow-[var(--e1)]"
           >
             <TrendingDown size={20} />
           </Link>
           <Link
-            href="/ajustes"
+            href="/settings"
             aria-label={t("settingsLabel")}
             className="tap-press flex h-[42px] w-[42px] items-center justify-center rounded-[14px] border border-line bg-surface text-ink-2 shadow-[var(--e1)]"
           >

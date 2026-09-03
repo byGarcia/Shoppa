@@ -92,7 +92,7 @@ describe("credentials provider", () => {
       user: { id: "u1", email: "ana@example.com", name: null, tokenVersion: 0 },
     });
     const result = await authorize()(
-      { email: "ana@example.com", password: "una contraseña larga" },
+      { email: "ana@example.com", password: "a long enough password" },
       undefined,
     );
     expect(result).toEqual({ id: "u1", email: "ana@example.com", name: null, tokenVersion: 0 });

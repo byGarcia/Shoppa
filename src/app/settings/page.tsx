@@ -4,18 +4,18 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "@/hooks/use-theme";
-import { PasskeyCard } from "@/components/ajustes/passkey-card";
-import { InviteCard } from "@/components/ajustes/invite-card";
-import { LanguageSwitch } from "@/components/ajustes/language-switch";
+import { PasskeyCard } from "@/components/settings/passkey-card";
+import { InviteCard } from "@/components/settings/invite-card";
+import { LanguageSwitch } from "@/components/settings/language-switch";
 
 // Route, emoji and tint are wiring; the two lines of copy come from the catalog
 // under the card's own name.
 const CARDS = [
-  { href: "/ajustes/supers", emoji: "🏪", key: "stores", tint: "#3fa372" },
-  { href: "/ajustes/categorias", emoji: "🏷️", key: "categories", tint: "#8b6fd6" },
-  { href: "/ajustes/diccionario", emoji: "📖", key: "dictionary", tint: "#c98a3b" },
-  { href: "/ajustes/atajo", emoji: "🎙️", key: "shortcut", tint: "#5b8fd6" },
-  { href: "/ajustes/telegram", emoji: "📉", key: "telegram", tint: "#4a9ecb" },
+  { href: "/settings/stores", emoji: "🏪", key: "stores", tint: "#3fa372" },
+  { href: "/settings/categories", emoji: "🏷️", key: "categories", tint: "#8b6fd6" },
+  { href: "/settings/dictionary", emoji: "📖", key: "dictionary", tint: "#c98a3b" },
+  { href: "/settings/shortcut", emoji: "🎙️", key: "shortcut", tint: "#5b8fd6" },
+  { href: "/settings/telegram", emoji: "📉", key: "telegram", tint: "#4a9ecb" },
 ] as const;
 
 export default function SettingsPage() {

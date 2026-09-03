@@ -7,6 +7,28 @@ There are no tags and no published container image yet, so "the version you are 
 commit SHA rather than a number. When that changes, the versions here will follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- **The screens live at English paths.** `/ajustes` is now `/settings` — with `/settings/stores`,
+  `/settings/categories`, `/settings/dictionary`, `/settings/shortcut` and `/settings/telegram` —
+  and `/precios` is now `/prices`. The documentation always called them Settings and Prices; the
+  URLs did not. Nothing links to the old paths any more, and there is no redirect: a bookmark to
+  one of them gets a 404. The installed PWA opens at `/`, so it is unaffected, and none of the
+  `/api/` routes moved — the Siri shortcuts and any assisted price fetcher keep working.
+- **The browser preferences are stored under the app's own name.** `compra-theme`, `compra-tab`
+  and `compra-add-dest` become `shoppa-*`. Each is migrated on first read, so nobody's theme or
+  last-used tab resets.
+- **The offline page speaks both languages.** It used to be Spanish for everybody. A service
+  worker cannot read the app's locale cookie, so it follows the browser's own language and falls
+  back to English.
+- **The repository is in English.** Comments, identifiers and test descriptions, which were partly
+  Spanish from when this was one household's private application. `node scripts/check-i18n.mjs`
+  now checks comments as well as string literals, so Spanish prose in a comment fails `pnpm check`.
+  The Spanish that remains is Spanish on purpose: the `es` catalog, the Spanish category names and
+  dictionary entries in the seed, and the shopping words the tests use as fixtures.
+
 ## 0.1.0 — 2026-09-03
 
 **First public release.** Not a summary of a history — there is none to summarise. This is the

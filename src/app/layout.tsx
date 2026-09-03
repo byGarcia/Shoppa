@@ -51,7 +51,12 @@ export const viewport = {
 // Light is the default; an explicit stored choice wins.
 // Runs before paint to avoid a theme flash. Inline script is allowed
 // by the CSP's `script-src 'self' 'unsafe-inline'`.
-const themeBootstrap = `try{if(localStorage.getItem('compra-theme')==='dark'){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`;
+//
+// It also moves the key an older install wrote under the app's former name.
+// The migration lives here rather than in the hook because this script is what
+// runs first: reading only the new key would show one light frame, and then a
+// dark one, to somebody who had chosen dark months ago.
+const themeBootstrap = `try{var k='shoppa-theme',v=localStorage.getItem(k);if(v===null){v=localStorage.getItem('compra-theme');if(v!==null){localStorage.setItem(k,v);localStorage.removeItem('compra-theme')}}if(v==='dark'){document.documentElement.setAttribute('data-theme','dark')}}catch(e){}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Read per request from the NEXT_LOCALE cookie (src/i18n/request.ts), so the

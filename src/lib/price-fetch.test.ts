@@ -31,7 +31,7 @@ afterEach(() => {
   process.env = { ...ORIGINAL };
 });
 
-const PAGE = '<html><head><title>Producto</title></head><body>12,50 EUR</body></html>';
+const PAGE = '<html><head><title>Product</title></head><body>12,50 EUR</body></html>';
 
 function response(body: string): Response {
   return new Response(body, { status: 200, headers: { "content-type": "text/html" } });
@@ -51,7 +51,7 @@ describe("fetchProductHtml in local mode", () => {
     vi.useFakeTimers();
 
     const { fetchProductHtml } = await import("./price-fetch.ts");
-    const result = await fetchProductHtml("https://tienda.example/producto");
+    const result = await fetchProductHtml("https://shop.example/product");
 
     expect(result.ok).toBe(false);
     expect(enqueueFetch).not.toHaveBeenCalled();

@@ -3,12 +3,29 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StoreDTO } from "@/types";
 
-const TAB_KEY = "compra-tab";
-const DEST_KEY = "compra-add-dest";
+const TAB_KEY = "shoppa-tab";
+const DEST_KEY = "shoppa-add-dest";
 
+// What the same two preferences were stored under before the app was named.
+const LEGACY_KEYS: Record<string, string> = {
+  [TAB_KEY]: "compra-tab",
+  [DEST_KEY]: "compra-add-dest",
+};
+
+/**
+ * Reads the preference, falling back once to the key an older install wrote
+ * and moving it across. Hydration is one-shot, so a fallback that did not
+ * migrate would be read on every load for the lifetime of that browser.
+ */
 function readStorage(key: string): string | null {
   try {
-    return localStorage.getItem(key);
+    const stored = localStorage.getItem(key);
+    if (stored !== null) return stored;
+    const legacy = localStorage.getItem(LEGACY_KEYS[key]);
+    if (legacy === null) return null;
+    localStorage.setItem(key, legacy);
+    localStorage.removeItem(LEGACY_KEYS[key]);
+    return legacy;
   } catch {
     return null;
   }
@@ -71,9 +88,9 @@ export function useActiveTab(
 }
 
 /**
- * Remembered destination for the "Todo" add input. Same pattern as
+ * Remembered destination for the "All" tab's add input. Same pattern as
  * useActiveTab: gate on storesReady, user writes only, orphan → null
- * ("Por asignar") without writing. Persisted value "" means null.
+ * ("Unassigned") without writing. Persisted value "" means null.
  */
 export function useAddDestination(
   stores: StoreDTO[],
@@ -90,7 +107,7 @@ export function useAddDestination(
     const stored = readStorage(DEST_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot hydration sync from localStorage, not a render loop
     if (stored && stores.some((s) => s.id === stored)) setDestState(stored);
-    // "" or orphan id → stay null ("Por asignar"). Never write back.
+    // "" or orphan id → stay null ("Unassigned"). Never write back.
   }, [storesReady, stores]);
 
   useEffect(() => {

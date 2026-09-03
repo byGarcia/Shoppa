@@ -10,10 +10,10 @@ type Props = {
   item: ItemDTO;
   onToggle: (item: ItemDTO) => void;
   onEdit: (item: ItemDTO) => void;
-  /** "Todo" view: store tag rendered between the quantity and the pencil. */
+  /** "All" view: store tag rendered between the quantity and the pencil. */
   storeBadge?: ReactNode;
   /**
-   * Resolved store name ("Por asignar" for inbox items) for the name button's
+   * Resolved store name ("Unassigned" for inbox items) for the name button's
    * aria-label. Set together with storeBadge; without it the label is today's.
    */
   storeLabel?: string;

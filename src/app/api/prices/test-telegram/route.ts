@@ -3,7 +3,7 @@ import { isTelegramConfigured, sendTelegram } from "@/lib/telegram";
 import { apiText } from "@/lib/api-messages";
 
 /**
- * POST /api/prices/test-telegram — the button in /ajustes/telegram.
+ * POST /api/prices/test-telegram — the button in /settings/telegram.
  *
  * These apps do not run locally (no database), so this is the only honest way
  * to verify the notification channel without waiting for a price to drop.

@@ -30,7 +30,7 @@ describe("APP_ORIGIN", () => {
   });
 
   it("rejects a URL that is not an origin", () => {
-    withEnv({ APP_ORIGIN: "no-es-una-url" });
+    withEnv({ APP_ORIGIN: "not-a-url" });
     expect(() => assertEnv()).toThrow(/APP_ORIGIN/);
   });
 

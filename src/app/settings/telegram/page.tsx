@@ -3,7 +3,7 @@
 import { Loader2, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { PageHeader } from "@/components/ajustes/page-header";
+import { PageHeader } from "@/components/settings/page-header";
 import { useTestTelegram } from "@/hooks/use-prices";
 
 // The shape of the guide, not its words. See settings.telegram in messages/.

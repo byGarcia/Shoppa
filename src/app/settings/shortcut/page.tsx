@@ -1,8 +1,8 @@
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 
-import { PageHeader } from "@/components/ajustes/page-header";
-import { VoiceTokenManager } from "@/components/ajustes/voice-token-manager";
+import { PageHeader } from "@/components/settings/page-header";
+import { VoiceTokenManager } from "@/components/settings/voice-token-manager";
 import { appOrigin } from "@/lib/env";
 
 // The shape of the guide, not its words: how many blocks and how many lines

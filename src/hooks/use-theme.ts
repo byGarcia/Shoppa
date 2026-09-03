@@ -2,7 +2,9 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
-const STORAGE_KEY = "compra-theme";
+// The pre-paint bootstrap in layout.tsx owns the read, and moves the key an
+// install written under the app's former name still holds. This only writes.
+const STORAGE_KEY = "shoppa-theme";
 const listeners = new Set<() => void>();
 
 function isDark(): boolean {

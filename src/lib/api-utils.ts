@@ -101,7 +101,7 @@ export async function handleApiError(error: unknown, context?: string): Promise<
     console.error("API error:", safeError);
   }
 
-  // Error personalizado de la API
+  // The API's own error type.
   if (error instanceof ApiError) {
     return NextResponse.json(
       { error: error.message, code: error.code },
@@ -212,7 +212,7 @@ function jsonResponse(body: unknown, status: number): NextResponse {
 
 export const ApiResponse = {
   /**
-   * Respuesta exitosa con datos
+   * A success carrying data.
    */
   success: <T>(data: T, status: number = 200): NextResponse => {
     return jsonResponse(data, status);
@@ -292,8 +292,8 @@ export const ApiResponse = {
 // ============================================================================
 
 /**
- * Valida el body de una request contra un schema Zod
- * Retorna los datos validados o una respuesta de error
+ * Validates a request body against a Zod schema, and returns either the
+ * validated data or the error response to send back.
  */
 export async function validateRequest<T>(
   request: Request,

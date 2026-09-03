@@ -2,8 +2,8 @@
 
 import { useTranslations } from "next-intl";
 
-import { PageHeader } from "@/components/ajustes/page-header";
-import { EntityManager } from "@/components/ajustes/entity-manager";
+import { PageHeader } from "@/components/settings/page-header";
+import { EntityManager } from "@/components/settings/entity-manager";
 import { useStores, useCreateStore, useUpdateStore, useDeleteStore } from "@/hooks/use-stores";
 
 export default function StoresPage() {

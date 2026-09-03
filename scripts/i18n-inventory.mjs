@@ -4,7 +4,7 @@
  * Parses every `src/**\/*.ts` and `src/**\/*.tsx` with the TypeScript compiler
  * that already ships in this repository and reports every string literal,
  * template chunk and JSX text node it finds. It walks `.ts` as well as `.tsx`
- * because copy does not only appear as JSX: `src/app/ajustes/atajo/page.tsx`
+ * because copy does not only appear as JSX: `src/app/settings/shortcut/page.tsx`
  * keeps its instructions in an array of plain strings, and toast messages and
  * validation text live in plain modules. A `.tsx`-only sweep reports those
  * files as clean and they are not.

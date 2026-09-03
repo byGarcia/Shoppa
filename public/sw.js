@@ -41,6 +41,34 @@ self.addEventListener("message", (event) => {
   );
 });
 
+// The offline page, in the two languages the app ships.
+//
+// A service worker cannot read the app's locale: `NEXT_LOCALE` is a cookie and
+// the worker is never handed one. It follows the browser's own language
+// instead, which is what next-intl falls back to before anybody has chosen.
+// Anything that is not Spanish gets English.
+const OFFLINE_COPY = {
+  en: { lang: "en", title: "Offline", body: "The list needs the network. Come back when you have it." },
+  es: { lang: "es", title: "Sin conexión", body: "La lista necesita red. Vuelve cuando la recuperes." },
+};
+
+function offlineResponse() {
+  const language = (self.navigator?.language || "en").toLowerCase();
+  const copy = language.startsWith("es") ? OFFLINE_COPY.es : OFFLINE_COPY.en;
+  const html =
+    `<!doctype html><html lang="${copy.lang}"><meta charset="utf-8">` +
+    `<meta name="viewport" content="width=device-width"><title>${copy.title}</title>` +
+    `<style>body{margin:0;background:#000;color:#fff;font-family:system-ui;display:flex;` +
+    `flex-direction:column;align-items:center;justify-content:center;min-height:100vh;` +
+    `text-align:center;padding:24px}h1{font-size:18px;font-weight:600;margin:0 0 8px}` +
+    `p{color:#888;font-size:14px;max-width:280px}</style>` +
+    `<body><h1>${copy.title}</h1><p>${copy.body}</p>`;
+  return new Response(html, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+    status: 503,
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -80,10 +108,7 @@ self.addEventListener("fetch", (event) => {
             const hit = await cache.match(req);
             if (hit) return hit;
           }
-          return new Response(
-            "<!doctype html><html lang=\"es\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>Sin conexión</title><style>body{margin:0;background:#000;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}h1{font-size:18px;font-weight:600;margin:0 0 8px}p{color:#888;font-size:14px;max-width:280px}</style><body><h1>Sin conexión</h1><p>La lista necesita red. Vuelve cuando la recuperes.</p>",
-            { headers: { "Content-Type": "text/html; charset=utf-8" }, status: 503 },
-          );
+          return offlineResponse();
         }
       })(),
     );

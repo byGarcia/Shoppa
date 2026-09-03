@@ -10,8 +10,8 @@ type Props = {
   onAdd: (name: string) => void;
   pending: boolean;
   /**
-   * "Todo" view: destination selector (stores in their given order plus a
-   * trailing "Por asignar" whose value "" maps to storeId null). Rendered as a
+   * "All" view: destination selector (stores in their given order plus a
+   * trailing "Unassigned" whose value "" maps to storeId null). Rendered as a
    * 12px visual chip with the real 16px <select> overlaid transparent — the
    * unlayered 16px rule in globals.css beats Tailwind utilities, and shrinking
    * it would bring back iOS zoom-on-focus.

@@ -19,27 +19,27 @@ describe("authorizePassword", () => {
   it("accepts the correct password", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
-      passwordHash: await hashPassword("una contraseña larga"),
+      passwordHash: await hashPassword("a long enough password"),
     });
-    const result = await authorizePassword("ana@example.com", "una contraseña larga");
+    const result = await authorizePassword("ana@example.com", "a long enough password");
     expect(result.ok).toBe(true);
   });
 
   it("rejects the wrong one", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
-      passwordHash: await hashPassword("una contraseña larga"),
+      passwordHash: await hashPassword("a long enough password"),
     });
-    expect((await authorizePassword("ana@example.com", "otra cosa distinta")).ok).toBe(false);
+    expect((await authorizePassword("ana@example.com", "something else entirely")).ok).toBe(false);
   });
 
   it("with AUTH_MODE=passkey it does not serve passwords at all", async () => {
     process.env.AUTH_MODE = "passkey";
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
-      passwordHash: await hashPassword("una contraseña larga"),
+      passwordHash: await hashPassword("a long enough password"),
     });
-    const result = await authorizePassword("ana@example.com", "una contraseña larga");
+    const result = await authorizePassword("ana@example.com", "a long enough password");
     expect(result.ok).toBe(false);
     expect(findUnique).not.toHaveBeenCalled();
   });
@@ -48,7 +48,7 @@ describe("authorizePassword", () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0, passwordHash: null,
     });
-    expect((await authorizePassword("ana@example.com", "lo que sea largo")).ok).toBe(false);
+    expect((await authorizePassword("ana@example.com", "long enough, whatever it is")).ok).toBe(false);
   });
 
   it("does the same cryptographic work when the email does not exist", async () => {
@@ -57,17 +57,17 @@ describe("authorizePassword", () => {
     // not an empty function.
     findUnique.mockResolvedValue(null);
     const before = DERIVATION_COUNT;
-    await authorizePassword("nadie@example.com", "lo que sea largo");
+    await authorizePassword("nadie@example.com", "long enough, whatever it is");
     expect(DERIVATION_COUNT).toBe(before + 1);
   });
 
   it("throttles after five consecutive failures from the same account", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
-      passwordHash: await hashPassword("una contraseña larga"),
+      passwordHash: await hashPassword("a long enough password"),
     });
     for (let i = 0; i < 5; i += 1) await authorizePassword("ana@example.com", "mal mal mal mal");
-    const result = await authorizePassword("ana@example.com", "una contraseña larga");
+    const result = await authorizePassword("ana@example.com", "a long enough password");
     expect(result.ok).toBe(false);
   });
 
@@ -87,15 +87,15 @@ describe("authorizePassword", () => {
     // Counting only the real accounts would turn the throttle into a cleaner
     // enumeration oracle than the one burnDummyHash closes.
     findUnique.mockResolvedValue(null);
-    for (let i = 0; i < 5; i += 1) await authorizePassword("nadie@example.com", "lo que sea largo");
-    const result = await authorizePassword("nadie@example.com", "lo que sea largo");
+    for (let i = 0; i < 5; i += 1) await authorizePassword("nadie@example.com", "long enough, whatever it is");
+    const result = await authorizePassword("nadie@example.com", "long enough, whatever it is");
     expect(result).toEqual({ ok: false, reason: "throttled" });
   });
 
   it("normalizes the throttled account the same way the throttle module does", async () => {
     findUnique.mockResolvedValue(null);
-    for (let i = 0; i < 5; i += 1) await authorizePassword("ana@example.com", "lo que sea largo");
-    const result = await authorizePassword("  Ana@Example.com  ", "lo que sea largo");
+    for (let i = 0; i < 5; i += 1) await authorizePassword("ana@example.com", "long enough, whatever it is");
+    const result = await authorizePassword("  Ana@Example.com  ", "long enough, whatever it is");
     expect(result).toEqual({ ok: false, reason: "throttled" });
   });
 });

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Search, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { PageHeader } from "@/components/ajustes/page-header";
+import { PageHeader } from "@/components/settings/page-header";
 import { useHints, useUpdateHint, useDeleteHint } from "@/hooks/use-hints";
 import { useCategories } from "@/hooks/use-categories";
 import { useCategoryName } from "@/hooks/use-category-name";

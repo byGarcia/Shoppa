@@ -6,8 +6,8 @@ import type { StoreDTO } from "@/types";
 import { storeColor } from "@/lib/category-visuals";
 
 /**
- * Small per-row store tag for the "Todo" view. Two variants:
- * a store chip (bg-chip + color dot) and a dashed "Por asignar" tag for
+ * Small per-row store tag for the "All" view. Two variants:
+ * a store chip (bg-chip + color dot) and a dashed "Unassigned" tag for
  * inbox items (same dashed language as the inbox tab). Both use text-ink-2,
  * never text-muted: --muted fails AA contrast at 11px on both backgrounds.
  * The dot is aria-hidden redundancy; the text carries the meaning.

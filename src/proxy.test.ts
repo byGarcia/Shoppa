@@ -95,7 +95,7 @@ describe("HSTS on short-circuited responses", () => {
 
   it("the redirect to /login carries it: it is the first response a visitor without a session sees", async () => {
     const proxy = await proxyWith("https://shopping.example.com");
-    const response = await proxy(new NextRequest("https://shopping.example.com/precios"));
+    const response = await proxy(new NextRequest("https://shopping.example.com/prices"));
     expect(response.status).toBe(307);
     expect(response.headers.get("strict-transport-security")).toContain("max-age=");
   });
@@ -123,7 +123,7 @@ describe("HSTS on short-circuited responses", () => {
 
   it("over http none of them carries it: it would pin the browser to an https that does not exist", async () => {
     const proxy = await proxyWith("http://192.168.1.50:3004");
-    const redirect = await proxy(new NextRequest("http://192.168.1.50:3004/precios"));
+    const redirect = await proxy(new NextRequest("http://192.168.1.50:3004/prices"));
     expect(redirect.status).toBe(307);
     expect(redirect.headers.get("strict-transport-security")).toBeNull();
     const asset = await proxy(new NextRequest("http://192.168.1.50:3004/favicon.ico"));
@@ -361,7 +361,7 @@ describe("invitations in the proxy", () => {
     return proxy;
   }
 
-  const TOKEN = "un-token-de-invitacion-cualquiera";
+  const TOKEN = "any-old-invitation-token";
 
   it("/invite/<token> is served without a session and without redirecting", async () => {
     const proxy = await proxyWith();
@@ -434,7 +434,7 @@ describe("invitations in the proxy", () => {
   it("revoking requires a session", async () => {
     const proxy = await proxyWith();
     const response = await proxy(
-      new NextRequest("https://shopping.example.com/api/invitations/lo-que-sea", {
+      new NextRequest("https://shopping.example.com/api/invitations/whatever", {
         method: "DELETE",
         headers: { "sec-fetch-site": "same-origin" },
       }),
@@ -597,7 +597,7 @@ describe("the setup token at boot", () => {
 
   async function boot(claimed: boolean) {
     bootAnswers.isClaimed = async () => claimed;
-    bootAnswers.setupToken = () => "token-de-prueba";
+    bootAnswers.setupToken = () => "test-token";
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     process.env = { ...ORIGINAL, APP_ORIGIN: "https://shopping.example.com" };
     // Both bindings from the same import: `vi.resetModules` in this suite means
@@ -611,7 +611,7 @@ describe("the setup token at boot", () => {
 
   it("with no owner, the token is written to the log", async () => {
     const info = await boot(false);
-    expect(info).toHaveBeenCalledWith(expect.stringContaining("token-de-prueba"));
+    expect(info).toHaveBeenCalledWith(expect.stringContaining("test-token"));
     info.mockRestore();
   });
 
@@ -634,7 +634,7 @@ describe("the setup token at boot", () => {
     process.env = {
       ...ORIGINAL,
       APP_ORIGIN: "https://shopping.example.com",
-      AUTH_SECRET: "secreto-de-prueba-suficientemente-largo",
+      AUTH_SECRET: "test-secret-long-enough",
       SETUP_TOKEN: undefined,
     };
     const { prisma } = await import("@/server/db");

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { PageHeader } from "@/components/ajustes/page-header";
+import { PageHeader } from "@/components/settings/page-header";
 import { AddProductForm } from "@/components/prices/add-product-form";
 import { ProductCard } from "@/components/prices/product-card";
 import {
@@ -72,7 +72,7 @@ export function PricesScreen() {
       </div>
 
       <Link
-        href="/ajustes/telegram"
+        href="/settings/telegram"
         className="tap-press mt-6 flex items-center gap-3 rounded-[16px] border border-line bg-surface px-4 py-3.5 shadow-[var(--e1)]"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-chip text-ink-2">

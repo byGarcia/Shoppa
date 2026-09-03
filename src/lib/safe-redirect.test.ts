@@ -6,8 +6,8 @@ const ORIGIN = "https://casa.example/login";
 
 describe("safeRedirect", () => {
   it("lets a path of the origin itself through", () => {
-    expect(safeRedirect("/precios")).toBe("/precios");
-    expect(safeRedirect("/ajustes/supers?x=1")).toBe("/ajustes/supers?x=1");
+    expect(safeRedirect("/prices")).toBe("/prices");
+    expect(safeRedirect("/settings/stores?x=1")).toBe("/settings/stores?x=1");
     expect(safeRedirect("/")).toBe("/");
   });
 

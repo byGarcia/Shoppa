@@ -33,9 +33,9 @@ describe("WebAuthn origin", () => {
   it("the explicit value wins over derivation", () => {
     withEnv({
       APP_ORIGIN: "https://shopping.example.com",
-      WEBAUTHN_ORIGIN: "https://otro.example.com",
+      WEBAUTHN_ORIGIN: "https://other.example.com",
     });
-    expect(WEBAUTHN_CONFIG.origin).toBe("https://otro.example.com");
+    expect(WEBAUTHN_CONFIG.origin).toBe("https://other.example.com");
   });
 
   it("with no variable it is APP_ORIGIN itself", () => {

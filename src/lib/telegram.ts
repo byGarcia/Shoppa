@@ -68,7 +68,7 @@ export async function sendTelegram(text: string): Promise<TelegramResult> {
 
     if (!response.ok) {
       // Telegram puts the real cause in `description` (bad chat_id, revoked
-      // token). Surfacing it is what makes the test button in /ajustes/telegram
+      // token). Surfacing it is what makes the test button in /settings/telegram
       // useful instead of a generic red toast.
       let description = `HTTP ${response.status}`;
       try {
