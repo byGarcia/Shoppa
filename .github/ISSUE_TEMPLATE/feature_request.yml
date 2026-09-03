@@ -1,0 +1,64 @@
+name: 💡 Feature request
+description: Something Shoppa should do and does not.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Shoppa is deliberately narrow: **a shared shopping list and a price watcher, one household
+        per instance.** [PRODUCT.md](https://github.com/byGarcia/Shoppa/blob/main/PRODUCT.md) says
+        what it owns, what it refuses to become and what has been left for later with the reason it
+        was left. A request that crosses that boundary is still worth making — but it has to argue
+        with the boundary rather than ignore it.
+
+        Things that are already answered there: multi-tenancy and per-user permissions (no, and no
+        plan for either), pantry or recipe or budget features (out of scope), setting a password
+        again from the interface and a smaller image (both wanted, both deliberately deferred).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: >-
+        What happens today that should not, or what you cannot do. Describe the situation, not the
+        solution — the shape of the fix is easier to get right once the problem is clear.
+      placeholder: |
+        Two of us shop in the same aisle at the same time and keep buying the same thing, because…
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+      description: Your proposal, and roughly what it would look like on screen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: >-
+        The workaround, or how another application solves it. This is genuinely useful: quite often
+        the workaround turns out to be good enough, and knowing that saves everybody the feature.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: The product boundary
+      options:
+        - label: I have read PRODUCT.md and this does not ask Shoppa to become a pantry manager, a recipe app, a budget, or multi-tenant.
+          required: false
+        - label: This does cross the boundary, and I have argued above why it should move.
+          required: false
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before you submit
+      options:
+        - label: I have searched the existing issues.
+          required: true

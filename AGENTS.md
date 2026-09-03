@@ -11,7 +11,8 @@ This version may have breaking changes. Read the relevant guide in
 
 Shoppa is a self-hosted shared shopping list with price tracking. One Next.js application, one
 PostgreSQL database, one container. `README.md` is what it is; `docs/` is how to run it;
-`PRODUCT.md` is what it is and is not allowed to become.
+`PRODUCT.md` is what it is and is not allowed to become; `CONTRIBUTING.md` is how to work on it and
+`SECURITY.md` is what is a vulnerability and what is a documented decision.
 
 ## Product
 

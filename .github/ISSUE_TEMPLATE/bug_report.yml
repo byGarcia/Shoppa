@@ -1,0 +1,148 @@
+name: 🐛 Bug report
+description: Something in Shoppa does not do what it says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Shoppa runs on machines nobody else can see, so a report is only as good as the context in
+        it. The fields below are the ones that have actually decided diagnoses on this project.
+
+        **Do not paste secrets.** Never `AUTH_SECRET`, `POSTGRES_PASSWORD`, `TELEGRAM_BOT_TOKEN`,
+        `N8N_API_KEY`, a voice token, an install token or an invitation link.
+
+        If this is a security vulnerability, close this form and use the private report instead:
+        <https://github.com/byGarcia/Shoppa/security/advisories/new>.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        I ticked an item off in the shop and it came back unticked on the other phone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: The shortest sequence that shows the problem. Say if it is intermittent.
+      placeholder: |
+        1. Add "leche entera" from the All tab
+        2. …
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        The commit you built from — `git rev-parse --short HEAD` in your checkout. There are no
+        releases yet, so the SHA is the only honest answer.
+      placeholder: "a1b2c3d"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: How is it deployed?
+      description: These fail in different places, so this narrows the search more than anything else.
+      options:
+        - "docker compose up, from this repository's compose.yaml"
+        - "Another container runtime or orchestrator (say which below)"
+        - "pnpm dev, from source"
+        - "pnpm build && pnpm start, from source"
+        - "Other (say which below)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app-origin-scheme
+    attributes:
+      label: APP_ORIGIN's scheme
+      description: >-
+        `APP_ORIGIN` is the authority on cookie security, HSTS and the CSRF origin check. An
+        `https://` value on a plain-HTTP instance makes the browser drop the session cookie, and
+        login then appears to do nothing at all. Do not paste the host — the scheme is what matters.
+      options:
+        - "http:// (a LAN address or localhost)"
+        - "https://"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: auth-mode
+    attributes:
+      label: AUTH_MODE
+      options:
+        - "auto (the default, or unset)"
+        - "password"
+        - "passkey"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: credential
+    attributes:
+      label: How does the affected account sign in?
+      options:
+        - "Password"
+        - "Passkey"
+        - "Not applicable — this bug is not about signing in"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: The other environment variables that matter to your symptom
+      description: >-
+        Values, not just names, where they are not secret. `TRUSTED_PROXY` for anything about rate
+        limiting or blocked requests; `TZ` and `PRICE_CHECK_CRON` for the daily price run;
+        `PRICE_FETCH_MODE` for prices that will not update; `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGIN`
+        if you set them, and whether there is a reverse proxy in front.
+      render: shell
+      placeholder: |
+        TRUSTED_PROXY=x-real-ip
+        TZ=Europe/Madrid
+        PRICE_CHECK_CRON=0 8 * * *
+        Reverse proxy: nginx, terminating TLS
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: What the container log says
+      description: >-
+        `docker compose logs app --tail 200`, from around the moment the problem happened. Boot-time
+        configuration errors and the price run report themselves here and nowhere else. Redact
+        anything that looks like a secret before pasting.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: client
+    attributes:
+      label: Browser and device
+      description: Only if the bug is something you see on screen. Say if it is installed to the home screen as a PWA.
+      placeholder: "Safari on iOS 18, added to the home screen"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: hygiene
+    attributes:
+      label: Before you submit
+      options:
+        - label: I have searched the existing issues.
+          required: true
+        - label: I have removed every secret from what I pasted above.
+          required: true
+        - label: This is not a security vulnerability. (If it is, use the private report instead.)
+          required: true

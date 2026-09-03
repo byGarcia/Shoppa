@@ -1,0 +1,79 @@
+# The same gate a contributor runs before pushing: `pnpm check` is lint,
+# typecheck, the i18n tripwire, the test suite and a production build.
+#
+# The suite has no mocks in front of PostgreSQL — it talks to a real database and
+# mutates it on purpose — so the service container below is not optional. Its
+# credentials, port and database name are the ones compose.dev.yaml uses, so the
+# DATABASE_URL here and the one in a contributor's .env.local are the same
+# string, and a failure reproduces locally without translation.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A second push to the same branch makes the first run's answer worthless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: pnpm check
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: shopping
+          POSTGRES_USER: shopping
+          POSTGRES_PASSWORD: shopping_dev
+        ports:
+          - 5437:5432
+        # The migrations run in the first step that needs the database, so the
+        # job must not reach it until Postgres is actually accepting connections.
+        options: >-
+          --health-cmd "pg_isready -U shopping -d shopping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The only variable the checks need. `src/entorno.ts` loads `.env.local`
+      # without overwriting what is already in the environment, and there is no
+      # `.env.local` here — in CI and in the container the values come from the
+      # environment, which is the case that file is written for.
+      DATABASE_URL: postgresql://shopping:shopping_dev@127.0.0.1:5437/shopping
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No `version:` on purpose: the action reads `packageManager` from
+      # package.json, so the pinned pnpm lives in one place and cannot drift.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # package.json allows 24, 25 and 26; the Dockerfile ships 24, so that
+          # is the one worth being sure about.
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # src/generated/ is gitignored, so without this every later step fails on
+      # a missing module rather than on anything real.
+      - name: Generate the Prisma client
+        run: pnpm db:generate
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      # The suite reads the factory categories and the dictionary.
+      - name: Seed
+        run: pnpm db:seed
+
+      - name: Lint, typecheck, i18n, tests, build
+        run: pnpm check

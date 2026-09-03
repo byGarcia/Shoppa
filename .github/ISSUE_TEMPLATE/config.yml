@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/byGarcia/Shoppa/security/advisories/new
+    about: Never in a public issue. This form is private between you and the maintainer. Read SECURITY.md first — some things that look like vulnerabilities are documented decisions.
+  - name: 📦 Installation and configuration
+    url: https://github.com/byGarcia/Shoppa/blob/main/docs/installation.md
+    about: Every environment variable, the first run, invitations, reverse proxies and recovery. Most "it will not let me in" questions are answered here.
+  - name: 📖 How to use it
+    url: https://github.com/byGarcia/Shoppa/blob/main/docs/usage.md
+    about: The list, the shop tabs, the dictionary, price tracking and the Siri shortcuts.
+  - name: 🚫 What Shoppa will not become
+    url: https://github.com/byGarcia/Shoppa/blob/main/PRODUCT.md
+    about: The product boundary, and the work deliberately left for later with the reason it was left. Worth reading before requesting a feature.

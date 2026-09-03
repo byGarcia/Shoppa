@@ -1,17 +1,27 @@
+<div align="center">
+
+<img src="docs/screenshots/list-en-light.png" alt="The Shoppa list on a phone" width="300">
+
 # Shoppa
 
-**The shopping list your household actually shares.** Type `leche entera` from the sofa and it is
-already there, under *Dairy*, on the phone of whoever walks into the shop next — one list, a tab per
-supermarket, and no arguing about who was supposed to buy the milk. It also keeps an eye on the
-price of the things you are waiting to get cheaper, and messages you on Telegram the morning one
-drops.
+[![CI](https://github.com/byGarcia/Shoppa/actions/workflows/ci.yml/badge.svg)](https://github.com/byGarcia/Shoppa/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/byGarcia/Shoppa)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/byGarcia/Shoppa)](https://github.com/byGarcia/Shoppa/stargazers)
+[![Issues](https://img.shields.io/github/issues/byGarcia/Shoppa)](https://github.com/byGarcia/Shoppa/issues)
+[![Last commit](https://img.shields.io/github/last-commit/byGarcia/Shoppa)](https://github.com/byGarcia/Shoppa/commits)
 
-Self-hosted, one container and a PostgreSQL database. No account anywhere, no plan, no tier: your
+**One list the whole house writes to: everything you type is filed into its aisle before anybody
+reaches the shop door, and the morning something you were waiting for gets cheaper, Telegram
+tells you.**
+
+Self-hosted — one container and a PostgreSQL database. No account anywhere, no plan, no tier: your
 list lives on your machine and nobody else holds a copy.
 
-![The list, in English](docs/screenshots/list-en-light.png)
+</div>
 
-## What it feels like to use
+---
+
+## 🛒 What it does
 
 - **You type, it files.** A bundled dictionary of 556 product words — Spanish and English — drops
   each thing you add into a category, so the list arrives at the shop already grouped the way the
@@ -37,26 +47,32 @@ list lives on your machine and nobody else holds a copy.
   everywhere else — which includes every plain-HTTP address on your own LAN, because WebAuthn needs
   a secure context. Running Shoppa at `http://192.168.1.50:3004` is a first-class way to run it, not
   a degraded one.
-- **Two languages under one roof.** Spanish and English, following whatever each browser asks for
-  and overridable per browser in Settings, so nobody in the house has to read the other one's
-  language.
-- **Installable, light and dark.** A PWA that goes on the home screen and opens without browser
-  chrome. It is online-only by design: authenticated data is never cached on the device.
+- **Spanish and English, light and dark, installable.** Each browser gets the language it asks for,
+  overridable in Settings, so nobody has to read the other one's. It goes on the home screen as a
+  PWA and opens without browser chrome; it is online-only by design, so authenticated data is never
+  cached on the device.
 
-| | |
-|---|---|
-| ![The list in Spanish, dark theme](docs/screenshots/list-es-dark.png) | ![Settings](docs/screenshots/settings-es.png) |
-| The same list in Spanish and in dark. The theme is chosen in Settings and remembered in that browser; it does not follow the system setting. | Everything you can change: shops, categories, the dictionary, Siri, Telegram, passkeys, invitations, theme and language. |
+<div align="center">
 
-![The same list at desktop width](docs/screenshots/list-desktop-es.png)
+<img src="docs/screenshots/list-es-dark.png" alt="The same list in Spanish, dark theme" width="290"> <img src="docs/screenshots/settings-es.png" alt="The Settings screen" width="290">
 
-## Get started
+<sub>**The same list, in Spanish and in dark** — the theme is chosen in Settings and remembered in
+that browser, and does not follow the system setting. **Settings** is everything you can change:
+shops, categories, the dictionary, Siri, Telegram, passkeys, invitations, theme and language.</sub>
+
+<img src="docs/screenshots/list-desktop-es.png" alt="The same list at desktop width" width="640">
+
+</div>
+
+---
+
+## 🚀 Get started
 
 You need Docker with the Compose plugin. There is no published image yet; the compose file builds
 from source.
 
 ```bash
-git clone <repository-url> shoppa
+git clone https://github.com/byGarcia/Shoppa.git shoppa
 cd shoppa
 cp .env.example .env
 ```
@@ -97,7 +113,9 @@ exists — everybody else arrives through an invitation link you create in Setti
 
 Then create your first shop in Settings, and start typing.
 
-## Configuration
+---
+
+## ⚙️ Configuration
 
 Three variables are required; everything else has a default that works. The full table, with what
 breaks when each one is wrong, is in [docs/installation.md](docs/installation.md). The ones people
@@ -123,7 +141,9 @@ Two traps worth reading before you deploy:
   passkey ceremony rather than at boot, so a blank line here is a working instance that fails the
   day somebody adds a key.
 
-## What it is not
+---
+
+## 🚫 What it is not
 
 - **Not multi-tenant.** One instance is one household. There is no notion of separate lists for
   separate groups, and there is no plan for one.
@@ -134,13 +154,15 @@ Two traps worth reading before you deploy:
 - **Not built to scale out.** One container. The assisted price mode keeps its work queue in
   memory, so a second replica would break it.
 
-## Known limitations
+---
 
-- **English plurals are matched imperfectly.** The text normaliser applies a Spanish
-  pluralisation rule to every language, so "tomato sauces" normalises to something the English
-  dictionary does not answer, and lands in the wrong category. Correct it once in the dictionary
-  and the correction sticks. Fixing it properly means changing a normaliser whose output is stored
-  in the database, so it is a migration, not a patch.
+## ⚠️ Known limitations
+
+- **English plurals are matched imperfectly.** The text normaliser applies a Spanish pluralisation
+  rule to every language, so "tomato sauces" normalises to something the English dictionary does
+  not answer, and lands in the wrong category. Correct it once in the dictionary and the correction
+  sticks. Fixing it properly means changing a normaliser whose output is stored in the database, so
+  it is a migration, not a patch.
 - **Registering a passkey deletes that account's password**, and this version has no screen to set
   one again. The way back is a rescue script run inside the container — see
   [docs/installation.md](docs/installation.md).
@@ -156,7 +178,9 @@ fetches the product pages you told it to watch, it sends the price-drop message 
 you configured, and your browser loads each tracked product's thumbnail straight from the shop's own
 servers — which is why the content-security policy has to allow images from any `https` origin.
 
-## Documentation
+---
+
+## 📚 Documentation
 
 - [docs/usage.md](docs/usage.md) — using it: the list, the categories, the shops, prices, voice.
 - [docs/installation.md](docs/installation.md) — compose, every variable, first run, invitations,
@@ -165,45 +189,22 @@ servers — which is why the content-security policy has to allow images from an
 - [docs/siri-shortcut.md](docs/siri-shortcut.md) — building the Shortcuts and the tokens they use.
 - [PRODUCT.md](PRODUCT.md) — what Shoppa owns, and the decisions that shaped it.
 
-## Development
+---
 
-You need **Node 24, 25 or 26** and **pnpm 11.13.0**. Both are pinned in `package.json`; the easiest
-way to get the right pnpm is `corepack enable`, which is what the Dockerfile does. Older Node is not
-a preference: `pnpm install` fails with `EBADENGINE`, and `pnpm db:seed` runs `prisma/seed.ts`
-through `node` directly, which needs the TypeScript stripping Node only does by itself from 24.
+## 🛠️ Contributing
 
-Development reads **`.env.local`**, not `.env`. That is where `prisma.config.ts`, the seed and the
-test runner all look, and none of them read `.env` — which is Compose's file, for the deployment
-above. Create it first or every Prisma command stops at `Cannot resolve environment variable:
-DATABASE_URL`.
+Running it from source needs **Node 24, 25 or 26** and **pnpm 11.13.0**, both pinned in
+`package.json`. The setup from a clean checkout, the conventions this codebase enforces and what a
+useful bug report contains are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-```bash
-pnpm install
+A vulnerability is not a bug report: [SECURITY.md](SECURITY.md) has its own private route, and it
+also lists the deliberate design decisions that look like bugs and are not. Everybody taking part
+is held to the [Code of Conduct](CODE_OF_CONDUCT.md). Releases are listed in
+[CHANGELOG.md](CHANGELOG.md).
 
-cat > .env.local <<'EOF'
-DATABASE_URL=postgresql://shopping:shopping_dev@127.0.0.1:5437/shopping
-APP_ORIGIN=http://localhost:3004
-AUTH_SECRET=dev-secret-long-enough-to-sign-things
-EOF
+---
 
-pnpm db:up        # PostgreSQL from compose.dev.yaml, on 127.0.0.1:5437
-pnpm db:generate  # the Prisma client, into the gitignored src/generated/
-pnpm db:deploy
-pnpm db:seed
-
-pnpm dev          # http://localhost:3004
-pnpm check        # lint, typecheck, i18n, tests, build
-```
-
-`pnpm db:generate` is not optional on a fresh clone: `src/generated/` is gitignored, so without it
-`typecheck`, `test`, `build` and `dev` all fail on a missing module.
-
-`compose.dev.yaml` starts the database only. `compose.yaml` is the one that installs Shoppa.
-
-The test suite runs against that same database and mutates it on purpose. `pnpm db:seed` is
-idempotent, so re-running it after a suite is harmless.
-
-## Support
+## ❤️ Support
 
 Shoppa is free and stays free. If it saved you an argument about who was supposed to buy the milk
 and you feel like buying some back, there is
@@ -213,6 +214,8 @@ and you feel like buying some back, there is
 [PayPal](https://www.paypal.com/paypalme/adriangmolina). A star or a good bug report is worth just
 as much.
 
-## License
+---
+
+## 📄 License
 
 MIT. See [LICENSE](LICENSE).
