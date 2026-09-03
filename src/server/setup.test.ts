@@ -24,51 +24,51 @@ beforeEach(async () => {
   });
 });
 
-// El defecto que este bloque fija no lo veía ninguna prueba unitaria: `let token`
-// memoiza por INSTANCIA DE MÓDULO, y Next compila el bundle del middleware
-// aparte de los de las rutas, así que el módulo se instancia más de una vez en
-// un mismo proceso y cada copia sacaba su propio valor al azar. El arranque
-// imprimía un token y /api/setup comprobaba otro: instancia inservible desde el
-// primer minuto. Recargar el módulo es la forma de reproducir eso aquí.
-describe("el token de instalación", () => {
-  async function tokenDeUnaCopiaNueva(): Promise<string> {
+// The defect this block pins down was invisible to every unit test: `let token`
+// memoises per MODULE INSTANCE, and Next compiles the middleware bundle apart
+// from the route bundles, so the module gets instantiated more than once in the
+// same process and each copy drew its own random value. Startup printed one
+// token and /api/setup checked a different one: an instance useless from the
+// first minute. Reloading the module is how that is reproduced here.
+describe("the setup token", () => {
+  async function tokenFromAFreshCopy(): Promise<string> {
     vi.resetModules();
-    const modulo = await import("./setup.ts");
-    return modulo.setupToken();
+    const imported = await import("./setup.ts");
+    return imported.setupToken();
   }
 
-  it("dos copias del módulo dan el mismo token: no se memoiza, se deriva", async () => {
+  it("two copies of the module give the same token: not memoised, derived", async () => {
     process.env.AUTH_SECRET = "secreto-de-prueba-suficientemente-largo";
-    expect(await tokenDeUnaCopiaNueva()).toBe(await tokenDeUnaCopiaNueva());
+    expect(await tokenFromAFreshCopy()).toBe(await tokenFromAFreshCopy());
   });
 
-  it("cambia si cambia AUTH_SECRET, y no lo revela", async () => {
+  it("changes if AUTH_SECRET changes, and does not reveal it", async () => {
     process.env.AUTH_SECRET = "un-secreto";
-    const a = await tokenDeUnaCopiaNueva();
+    const a = await tokenFromAFreshCopy();
     process.env.AUTH_SECRET = "otro-secreto";
-    const b = await tokenDeUnaCopiaNueva();
+    const b = await tokenFromAFreshCopy();
     expect(a).not.toBe(b);
     expect(a).not.toContain("un-secreto");
   });
 
-  it("SETUP_TOKEN explícito manda sobre la derivación", async () => {
+  it("an explicit SETUP_TOKEN wins over the derivation", async () => {
     process.env.SETUP_TOKEN = "el-mio";
-    expect(await tokenDeUnaCopiaNueva()).toBe("el-mio");
+    expect(await tokenFromAFreshCopy()).toBe("el-mio");
   });
 
-  it("sin AUTH_SECRET y sin SETUP_TOKEN lanza nombrando la variable", async () => {
+  it("with neither AUTH_SECRET nor SETUP_TOKEN it throws naming the variable", async () => {
     delete process.env.AUTH_SECRET;
     delete process.env.SETUP_TOKEN;
-    await expect(tokenDeUnaCopiaNueva()).rejects.toThrow(/AUTH_SECRET/);
+    await expect(tokenFromAFreshCopy()).rejects.toThrow(/AUTH_SECRET/);
   });
 });
 
-describe("reclamación de la instancia", () => {
-  it("una instancia sin usuarios está sin reclamar", async () => {
+describe("claiming the instance", () => {
+  it("an instance with no users is unclaimed", async () => {
     expect(await isClaimed()).toBe(false);
   });
 
-  it("rechaza un token de instalación equivocado", async () => {
+  it("rejects a wrong setup token", async () => {
     const result = await claimInstance({
       token: "no-es-el-token",
       email: "ana@example.com",
@@ -78,7 +78,7 @@ describe("reclamación de la instancia", () => {
     expect(await prisma.user.count()).toBe(0);
   });
 
-  it("crea el usuario y marca la reclamación", async () => {
+  it("creates the user and marks the claim", async () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "ana@example.com",
@@ -89,7 +89,7 @@ describe("reclamación de la instancia", () => {
     expect(await prisma.user.count()).toBe(1);
   });
 
-  it("de dos reclamaciones simultáneas sólo prospera una, y no queda medio usuario", async () => {
+  it("of two simultaneous claims only one succeeds, and no half user is left behind", async () => {
     const token = setupToken();
     const [a, b] = await Promise.all([
       claimInstance({ token, email: "ana@example.com", password: "una contraseña larga" }),
@@ -99,48 +99,48 @@ describe("reclamación de la instancia", () => {
     expect(await prisma.user.count()).toBe(1);
   });
 
-  // El Promise.all de arriba depende de que las dos transacciones se solapen de
-  // verdad, y no lo garantiza: el scrypt previo introduce jitter y la ventana de
-  // la primera transacción es de un par de milisegundos. Esta prueba fuerza el
-  // solapamiento — mantiene una transacción abierta con la fila bloqueada
-  // mientras la reclamación real llega — y es la que demuestra la garantía:
-  // el segundo se queda esperando el bloqueo y, al soltarse, su UPDATE
-  // condicional casa cero filas. Un «contar y decidir» leería claimed_at NULL
-  // desde la instantánea previa al commit y crearía el usuario igualmente.
-  it("una reclamación que llega con la fila bloqueada por otra transacción no prospera", async () => {
-    let liberar: () => void = () => {};
-    const bloqueada = new Promise<void>((resolve) => {
-      liberar = resolve;
+  // The Promise.all above depends on the two transactions actually overlapping,
+  // and does not guarantee it: the scrypt that runs first introduces jitter and
+  // the first transaction's window is a couple of milliseconds. This test forces
+  // the overlap — it holds a transaction open with the row locked while the real
+  // claim arrives — and it is the one that proves the guarantee: the second one
+  // sits waiting on the lock and, once it is released, its conditional UPDATE
+  // matches zero rows. A "count and then decide" would read claimed_at NULL from
+  // the pre-commit snapshot and create the user regardless.
+  it("a claim that arrives with the row locked by another transaction does not succeed", async () => {
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    let dentro: () => void = () => {};
-    const yaBloqueada = new Promise<void>((resolve) => {
-      dentro = resolve;
+    let entered: () => void = () => {};
+    const hasEntered = new Promise<void>((resolve) => {
+      entered = resolve;
     });
 
-    const retenedor = prisma.$transaction(async (tx) => {
+    const holder = prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         UPDATE instance_setup SET claimed_at = now()
         WHERE id = 'singleton' AND claimed_at IS NULL`;
-      dentro();
-      await bloqueada;
+      entered();
+      await held;
     });
 
-    await yaBloqueada;
-    const tardio = claimInstance({
+    await hasEntered;
+    const late = claimInstance({
       token: setupToken(),
       email: "luis@example.com",
       password: "otra contraseña larga",
     });
-    // Tiempo de sobra para que el UPDATE del tardío llegue al bloqueo.
+    // Plenty of time for the late claim's UPDATE to reach the lock.
     await new Promise((resolve) => setTimeout(resolve, 200));
-    liberar();
-    await retenedor;
+    release();
+    await holder;
 
-    expect(await tardio).toEqual({ ok: false, reason: "already-claimed" });
+    expect(await late).toEqual({ ok: false, reason: "already-claimed" });
     expect(await prisma.user.count()).toBe(0);
   });
 
-  it("ya reclamada, no se vuelve a reclamar", async () => {
+  it("once claimed, it is not claimed again", async () => {
     const token = setupToken();
     await claimInstance({ token, email: "ana@example.com", password: "una contraseña larga" });
     const second = await claimInstance({
@@ -151,10 +151,10 @@ describe("reclamación de la instancia", () => {
     expect(second).toEqual({ ok: false, reason: "already-claimed" });
   });
 
-  // El CHECK mantiene la fila de instance_setup única, no obligatoria: tras un
-  // DELETE el UPDATE condicional casa cero filas en silencio. Cero filas es
-  // «no obtuve la reclamación», nunca «la fila ya estaba y sigue ahí».
-  it("sin la fila de instance_setup no se reclama nada ni se crea usuario", async () => {
+  // The CHECK keeps the instance_setup row unique, not mandatory: after a DELETE
+  // the conditional UPDATE silently matches zero rows. Zero rows means "I did not
+  // get the claim", never "the row was already there and is still there".
+  it("with no instance_setup row nothing is claimed and no user is created", async () => {
     await prisma.instanceSetup.deleteMany();
     const result = await claimInstance({
       token: setupToken(),
@@ -165,7 +165,7 @@ describe("reclamación de la instancia", () => {
     expect(await prisma.user.count()).toBe(0);
   });
 
-  it("guarda el correo en minúsculas y sin espacios", async () => {
+  it("stores the email lowercased and without surrounding spaces", async () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "  Ana@Example.COM  ",
@@ -176,7 +176,7 @@ describe("reclamación de la instancia", () => {
     expect(user?.email).toBe("ana@example.com");
   });
 
-  it("una reclamación con credencial no guarda hash de contraseña", async () => {
+  it("a claim made with a credential stores no password hash", async () => {
     const result = await claimInstance({
       token: setupToken(),
       email: "ana@example.com",
@@ -195,19 +195,19 @@ describe("reclamación de la instancia", () => {
     expect(await prisma.webAuthnCredential.count()).toBe(1);
   });
 
-  // La migración rellena claimed_at sólo para los usuarios que hubiera cuando
-  // corrió, y cualquier fila escrita en users fuera del camino de reclamación
-  // —una restauración, un INSERT a mano— deja la marca sin tocar. En ese estado
-  // —usuarios sí, marca no— la puerta «no está reclamada» mandaba a la casa
-  // entera a /setup y le abría a un visitante una ventana de registro al lado
-  // de las cuentas que ya existían.
-  it("con usuarios y sin marca, la instancia cuenta como reclamada", async () => {
+  // The migration fills claimed_at only for the users that existed when it ran,
+  // and any row written into users outside the claim path — a restore, a
+  // hand-written INSERT — leaves the mark untouched. In that state — users yes,
+  // mark no — the "not claimed" gate sent the whole household to /setup and
+  // opened a sign-up window for a visitor right next to the accounts that
+  // already existed.
+  it("with users and no mark, the instance counts as claimed", async () => {
     await prisma.user.create({ data: { email: "importada@example.com" } });
     await prisma.instanceSetup.update({ where: { id: "singleton" }, data: { claimedAt: null } });
     expect(await isClaimed()).toBe(true);
   });
 
-  it("con usuarios y sin marca, un token bueno no crea una segunda cuenta", async () => {
+  it("with users and no mark, a good token does not create a second account", async () => {
     await prisma.user.create({ data: { email: "importada@example.com" } });
     await prisma.instanceSetup.update({ where: { id: "singleton" }, data: { claimedAt: null } });
     const result = await claimInstance({
@@ -219,7 +219,7 @@ describe("reclamación de la instancia", () => {
     expect(await prisma.user.count()).toBe(1);
   });
 
-  it("sin contraseña ni credencial no crea nada y deja la instancia sin reclamar", async () => {
+  it("without password or credential nothing is created and the instance stays unclaimed", async () => {
     const result = await claimInstance({ token: setupToken(), email: "ana@example.com" });
     expect(result).toEqual({ ok: false, reason: "invalid" });
     expect(await isClaimed()).toBe(false);

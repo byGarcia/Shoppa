@@ -15,7 +15,7 @@
  * `Cannot find module` at the worst possible moment if it is forgotten:
  *
  *  1. The runner stage copies `node_modules`, `.next`, `public`, `prisma`,
- *     `ops`, `scripts/lib`, this file and `src/entorno.ts`. It does not copy
+ *     `ops`, `scripts/lib`, this file and `src/env-local.ts`. It does not copy
  *     `src/lib` or `src/server`, so nothing under `src/lib` can be imported
  *     from here.
  *  2. Plain `node` does not read tsconfig paths, so the `@/` alias is a
@@ -27,7 +27,7 @@
  * The environment is read from the process, never from a file. In the container
  * DATABASE_URL is already there; on a workstation the `auth:password` alias
  * supplies `.env.local` with `--env-file-if-exists`, which keeps the real
- * environment winning over the file the way src/entorno.ts does.
+ * environment winning over the file the way src/env-local.ts does.
  */
 import { hostname, userInfo } from "node:os";
 import { pathToFileURL } from "node:url";

@@ -5,9 +5,9 @@ import en from "../../messages/en.json";
 import es from "../../messages/es.json";
 
 /**
- * Los catálogos se comprueban aquí porque la alternativa es comprobarlos a ojo,
- * y una clave que falta en inglés no se ve: next-intl devuelve la clave en
- * crudo en la pantalla de alguien, no un error en el build.
+ * The catalogs are checked here because the alternative is checking them by
+ * eye, and a key missing in English is invisible: next-intl returns the raw key
+ * on somebody's screen, not a build error.
  */
 type Tree = { [key: string]: string | Tree };
 
@@ -22,12 +22,12 @@ function flatten(tree: Tree, prefix = ""): Map<string, string> {
 }
 
 /**
- * Los nombres de los huecos: `{nombre}` y el argumento de `{count, plural, …}`.
+ * The placeholder names: `{name}` and the argument of `{count, plural, …}`.
  *
- * Exige la coma o la llave de cierre detrás del nombre para no confundirse con
- * el cuerpo de una rama de `select`, que también empieza por `{` seguido de una
- * palabra: en `{http, select, true { porque la instancia…}}` el hueco es `http`
- * y `porque` es texto.
+ * Requires the comma or the closing brace after the name so it is not confused
+ * with the body of a `select` branch, which also starts with `{` followed by a
+ * word: in `{http, select, true { porque la instancia…}}` the placeholder is
+ * `http` and `porque` is text.
  */
 function placeholders(message: string): string[] {
   return [...message.matchAll(/\{\s*(\w+)\s*[,}]/g)].map((m) => m[1]).sort();
@@ -36,65 +36,66 @@ function placeholders(message: string): string[] {
 const ES = flatten(es as Tree);
 const EN = flatten(en as Tree);
 
-describe("catálogos de mensajes", () => {
-  it("tienen exactamente las mismas claves", () => {
+describe("message catalogs", () => {
+  it("have exactly the same keys", () => {
     expect([...EN.keys()].sort()).toEqual([...ES.keys()].sort());
   });
 
-  it("no dejan ningún mensaje vacío", () => {
+  it("leave no message empty", () => {
     for (const [key, value] of [...ES, ...EN]) {
       expect(value.trim(), key).not.toBe("");
     }
   });
 
-  it("usan los mismos huecos en los dos idiomas", () => {
-    // Un hueco que sólo existe en un idioma es texto roto en el otro: o sale
-    // el literal "{name}" en pantalla, o se pierde el dato.
+  it("use the same placeholders in both languages", () => {
+    // A placeholder that exists in only one language is broken text in the
+    // other: either the literal "{name}" shows up on screen, or the data is
+    // lost.
     for (const [key, spanish] of ES) {
       expect(placeholders(EN.get(key) ?? ""), key).toEqual(placeholders(spanish));
     }
   });
 });
 
-describe("prefijo de los avisos de Telegram", () => {
+describe("prefix of the Telegram notifications", () => {
   /**
-   * El prefijo es una etiqueta de origen, no una traducción: los avisos caen en
-   * un chat compartido con otras cosas y hay que distinguirlos de un vistazo.
-   * Por eso las tres pruebas de "mismas claves / mismos huecos" de arriba lo
-   * dejaban pasar: el valor castellano era un valor inglés perfectamente
-   * válido para ellas, y a un desconocido le llegaba «🔻 compra — <b>Café</b>»
-   * en una instalación en inglés.
+   * The prefix is a label saying where the message comes from, not a
+   * translation: the notifications land in a chat shared with other things and
+   * have to be told apart at a glance. That is why the three "same keys / same
+   * placeholders" tests above let it through: the Spanish value was a perfectly
+   * valid English value as far as they were concerned, and a stranger running
+   * an English installation got "🔻 compra — <b>Café</b>".
    */
   const PREFIXED = ["api.prices.telegramTest", "api.notify.unreadable", "api.notify.drop"];
 
-  it("cada idioma lleva el suyo", () => {
+  it("each language carries its own", () => {
     for (const key of PREFIXED) {
       expect(ES.get(key), key).toContain("compra —");
       expect(EN.get(key), key).toContain("Shoppa —");
     }
   });
 
-  it("ningún mensaje inglés arrastra el prefijo castellano", () => {
-    // Incluye la pantalla de Ajustes que explica cuál es el prefijo: si se
-    // cambia el aviso y no la explicación, el documento miente sobre el
-    // producto.
+  it("no English message drags the Spanish prefix along", () => {
+    // This includes the Settings screen that explains what the prefix is: if
+    // the notification is changed and the explanation is not, the document lies
+    // about the product.
     for (const [key, value] of EN) {
       expect(value, key).not.toContain("compra —");
     }
   });
 });
 
-describe("categorías de fábrica", () => {
-  it("tienen una entrada de catálogo por cada id sembrado", () => {
-    // El name_key de una categoría ES su id (prisma/seed-data.ts), así que una
-    // categoría sembrada sin entrada aquí se renderiza como "gcat-loquesea".
+describe("factory categories", () => {
+  it("have a catalog entry for every seeded id", () => {
+    // A category's name_key IS its id (prisma/seed-data.ts), so a seeded
+    // category with no entry here renders as "gcat-whatever".
     for (const category of FACTORY_CATEGORIES) {
       expect(ES.has(`categories.${category.id}`), category.id).toBe(true);
       expect(EN.has(`categories.${category.id}`), category.id).toBe(true);
     }
   });
 
-  it("no traen ninguna entrada de más", () => {
+  it("bring no entry too many", () => {
     const seeded = new Set(FACTORY_CATEGORIES.map((c) => c.id));
     for (const key of ES.keys()) {
       if (!key.startsWith("categories.")) continue;
@@ -102,10 +103,10 @@ describe("categorías de fábrica", () => {
     }
   });
 
-  it("dicen lo mismo que la semilla, palabra por palabra", () => {
-    // La semilla y el catálogo son dos copias del mismo nombre y hoy coinciden.
-    // Si se separan, una instalación recién sembrada muestra un nombre y la
-    // misma categoría traducida muestra otro, sin que falle nada.
+  it("say the same as the seed, word for word", () => {
+    // The seed and the catalog are two copies of the same name and today they
+    // agree. If they drift apart, a freshly seeded installation shows one name
+    // and the same category translated shows another, with nothing failing.
     for (const category of FACTORY_CATEGORIES) {
       expect(ES.get(`categories.${category.id}`), category.id).toBe(category.es);
       expect(EN.get(`categories.${category.id}`), category.id).toBe(category.en);

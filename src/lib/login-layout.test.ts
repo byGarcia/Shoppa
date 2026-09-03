@@ -5,61 +5,62 @@ import es from "../../messages/es.json";
 import { loginLayout } from "./login-layout.ts";
 
 /**
- * El aviso: con AUTH_MODE=auto la pantalla ofrecía un botón de passkey y, justo
- * debajo y con el mismo peso, un campo de contraseña. Toda cuenta migrada de la
- * aplicación anterior tiene passkey y NO tiene contraseña: para todas ellas ese
- * campo no podía funcionar nunca.
+ * The report: with AUTH_MODE=auto the screen offered a passkey button and,
+ * right below it and with the same weight, a password field. Every account
+ * migrated from the previous application has a passkey and does NOT have a
+ * password: for all of them that field could never work.
  *
- * Se reordena, no se quita. El servidor no puede saber cuál de las dos tiene
- * quien mira la pantalla, y sobre todo no debe averiguarlo: una pantalla que
- * enseñara el campo sólo a las cuentas que tienen contraseña estaría contestando
- * «¿existe esta dirección aquí y cómo entra?» a cualquiera que teclee un correo.
+ * It gets reordered, not removed. The server cannot know which of the two the
+ * person looking at the screen has, and above all must not find out: a screen
+ * that showed the field only to accounts that have a password would be
+ * answering "does this address exist here, and how does it get in?" to anyone
+ * who types an email.
  */
-describe("qué ofrece la pantalla de entrada en cada AUTH_MODE", () => {
-  it("auto: la passkey es la acción y la contraseña espera detrás de un control", () => {
+describe("what the login screen offers in each AUTH_MODE", () => {
+  it("auto: the passkey is the action and the password waits behind a control", () => {
     expect(loginLayout("auto")).toEqual({ passkey: true, passwordSlot: "behind-reveal" });
   });
 
-  it("passkey: no hay contraseña que revelar, ni escondida", () => {
+  it("passkey: there is no password to reveal, not even a hidden one", () => {
     expect(loginLayout("passkey")).toEqual({ passkey: true, passwordSlot: "absent" });
   });
 
-  it("password: sin botón de passkey, la contraseña no es la segunda opción sino el formulario", () => {
-    // Escondida detrás de un control sería esconder la única puerta que hay.
+  it("password: with no passkey button, the password is not the second option but the form itself", () => {
+    // Hidden behind a control would mean hiding the only door there is.
     expect(loginLayout("password")).toEqual({ passkey: false, passwordSlot: "primary" });
   });
 
-  it("en los tres modos hay al menos una forma de entrar en la pantalla", () => {
+  it("in all three modes the screen has at least one way in", () => {
     for (const mode of ["auto", "passkey", "password"] as const) {
       const layout = loginLayout(mode);
       expect(layout.passkey || layout.passwordSlot !== "absent", mode).toBe(true);
     }
   });
 
-  // Lo que NO entra por la puerta: la función no recibe ni el correo, ni la
-  // cuenta, ni nada leído de la base de datos. Su única entrada es la
-  // configuración de la instancia, que es la misma para todo el que la visita.
-  it("la misma instancia enseña lo mismo a todo el mundo", () => {
+  // What does NOT come in through the door: the function receives neither the
+  // email, nor the account, nor anything read from the database. Its only
+  // input is the instance configuration, the same for everyone who visits it.
+  it("the same instance shows the same thing to everybody", () => {
     expect(loginLayout("auto")).toEqual(loginLayout("auto"));
     expect(loginLayout.length).toBe(1);
   });
 });
 
-describe("los textos de la pantalla de entrada", () => {
-  it("el control que revela la contraseña está en los dos catálogos", () => {
+describe("the login screen texts", () => {
+  it("the control that reveals the password is in both catalogs", () => {
     expect(es.login).toHaveProperty("passwordReveal");
     expect(en.login).toHaveProperty("passwordReveal");
   });
 
-  it("la etiqueta del campo ya no dice «o», que era falso sin botón de passkey", () => {
-    // Con AUTH_MODE=password no hay ninguna otra opción de la que ésta sea la
-    // alternativa, y «O entra con tu contraseña» leía como si la hubiera.
+  it('the field label no longer says "or", which was false with no passkey button', () => {
+    // With AUTH_MODE=password there is no other option for this one to be the
+    // alternative to, and "O entra con tu contraseña" read as if there were.
     expect(es.login.passwordLabel).not.toMatch(/^O /);
     expect(en.login.passwordLabel.toLowerCase()).not.toMatch(/^or /);
   });
 
-  it("y la línea bajo el botón ya no promete que aquí no hay contraseñas", () => {
-    // Estaba justo encima del control que ofrece una.
+  it("and the line under the button no longer promises that there are no passwords here", () => {
+    // It sat right above the control that offers one.
     expect(es.login.passkeyHint).not.toContain("Sin contraseñas");
     expect(en.login.passkeyHint).not.toContain("No passwords");
   });

@@ -7,7 +7,7 @@ import { addOrReviveItem } from "@/lib/grocery-server";
 import { prisma } from "@/server/db";
 
 /**
- * POST /api/ingest/voice — Siri Shortcut "Apuntar en la compra".
+ * POST /api/ingest/voice — the "add to the shopping list" Siri Shortcut.
  * Body { text }, Authorization: Bearer <VoiceToken>.
  * Creates/revives the item in the inbox, auto-categorized.
  * Response body.message is what the Shortcut shows/speaks.
@@ -36,7 +36,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const { item } = await addOrReviveItem({
       name: parsed.data.text,
-      storeId: null, // inbox ("Por asignar")
+      storeId: null, // the inbox, shown as the "unassigned" tab
       source: "SIRI",
       addedByUserId: auth.userId,
     });

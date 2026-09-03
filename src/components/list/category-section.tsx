@@ -13,7 +13,7 @@ type Props = {
   items: ItemDTO[];
   onToggle: (item: ItemDTO) => void;
   onEdit: (item: ItemDTO) => void;
-  /** "Todo" view: render a per-row store tag. */
+  /** The "all stores" view: render a per-row store tag. */
   showStoreBadges?: boolean;
   storesById?: Map<string, StoreDTO>;
 };

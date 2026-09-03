@@ -35,7 +35,7 @@ async function instanceOrigin(): Promise<string> {
   return `${configured.protocol}//${host}`;
 }
 
-export default async function AtajoPage() {
+export default async function ShortcutPage() {
   const t = await getTranslations("settings.shortcut");
   const origin = await instanceOrigin();
 

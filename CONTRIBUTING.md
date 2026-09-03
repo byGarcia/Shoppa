@@ -72,9 +72,14 @@ harmless and is the way back to a known state.
 
 These are not style preferences. Each one has a check behind it or a reason written down.
 
-- **English comments and identifiers in `src/lib`, `src/server` and `src/app`.** Test descriptions
-  are Spanish — that is this repository's convention, and `scripts/check-i18n.mjs` exempts
-  `*.test.ts` for exactly that reason.
+- **English everywhere a reader looks: comments, identifiers and test descriptions.** Test
+  descriptions used to be Spanish; they are not any more, and `scripts/check-i18n.mjs` now checks
+  comments as well as string literals, so a Spanish comment fails `pnpm check`. The Spanish that
+  remains is Spanish on purpose: `messages/es.json`, the Spanish category names and dictionary
+  entries in `prisma/seed-data.ts`, the `name (es)` column of `prisma/factory-categories.md`, the
+  Spanish shopping words a test uses as fixture data, and Spanish quoted inside a comment as an
+  example of what a user typed. Quoted Spanish in a comment passes the check; unquoted Spanish
+  prose does not.
 - **Every user-visible string goes through both catalogs**, `messages/es.json` and
   `messages/en.json`, and is read with `useTranslations` / `getTranslations`. Never a literal in a
   component. Two things enforce it:
@@ -106,8 +111,9 @@ These are not style preferences. Each one has a check behind it or a reason writ
 2. **One change per pull request**, with a description of what problem it solves. If the change
    alters what the product *does* rather than how it does it, it needs a paragraph in `PRODUCT.md`
    in the same pull request.
-3. **Commit messages are conventional-commit prefixed** (`feat:`, `fix:`, `docs:`, `chore:`…). The
-   existing history is in Spanish; English is equally welcome from contributors.
+3. **Commit messages are English and conventional-commit prefixed** (`feat:`, `fix:`, `docs:`,
+   `chore:`…). The history from before the repository was opened is in Spanish; everything written
+   since is English.
 4. **New behaviour comes with a test.** The suite is the reason this project can be installed by
    strangers without a staging environment.
 

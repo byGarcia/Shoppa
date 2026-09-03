@@ -72,7 +72,7 @@ export async function getOptionalAuthSession(): Promise<AuthenticatedSession | n
 // ============================================================================
 
 /**
- * Error personalizado para APIs
+ * Custom error for API routes.
  */
 export class ApiError extends Error {
   constructor(
@@ -86,7 +86,7 @@ export class ApiError extends Error {
 }
 
 /**
- * Maneja errores y retorna una respuesta apropiada
+ * Handles an error and returns the appropriate response.
  */
 export async function handleApiError(error: unknown, context?: string): Promise<NextResponse> {
   // Log without the payload. A Prisma error carries the offending row in

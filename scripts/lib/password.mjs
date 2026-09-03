@@ -18,7 +18,7 @@ const scrypt = promisify(scryptCallback);
  * ERR_CRYPTO_INVALID_SCRYPT_PARAMS. Measured on Node 26.7.0: 167 ms.
  *
  * Plain ESM rather than TypeScript, and outside `src/`, because the runner
- * image copies only `src/entorno.ts` from `src`, and plain `node` does not
+ * image copies only `src/env-local.ts` from `src`, and plain `node` does not
  * resolve the `@/` alias. The rescue script and the seed run inside that image
  * and need this exact code; `src/lib/password.ts` re-exports it so the
  * application and the tests share the one implementation.

@@ -1,3 +1,3 @@
-import { cargaEnvLocal } from "./src/entorno.ts";
+import { loadLocalEnv } from "./src/env-local.ts";
 
-cargaEnvLocal();
+loadLocalEnv();

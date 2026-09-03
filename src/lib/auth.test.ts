@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * NextAuth no expone su configuración: `NextAuth(factory)` devuelve manejadores.
- * Se sustituye por un doble que guarda la fábrica, y así se puede llamar al
- * `authorize` del proveedor de credenciales, que es donde vive la decisión.
+ * NextAuth does not expose its config: `NextAuth(factory)` returns handlers.
+ * It is replaced by a double that keeps the factory, so that the credentials
+ * provider's `authorize` — where the decision lives — can be called directly.
  */
-const capturado = vi.hoisted(() => ({ factory: null as null | (() => Record<string, unknown>) }));
+const captured = vi.hoisted(() => ({ factory: null as null | (() => Record<string, unknown>) }));
 
 vi.mock("next-auth", () => ({
   default: (factory: () => Record<string, unknown>) => {
-    capturado.factory = factory;
+    captured.factory = factory;
     return { handlers: {}, signIn: vi.fn(), signOut: vi.fn(), auth: vi.fn() };
   },
 }));
@@ -41,14 +41,14 @@ type Authorize = (
 ) => Promise<unknown>;
 
 /**
- * `Credentials(config)` de @auth/core devuelve un objeto con un `authorize`
- * de relleno que siempre da null y guarda la configuración real en `options`;
- * NextAuth las funde después. Leer el de arriba haría pasar cualquier prueba
- * que espere null, incluida la del rechazo, sin ejecutar una línea del código
- * que se quiere fijar.
+ * `Credentials(config)` from @auth/core returns an object with a placeholder
+ * `authorize` that always yields null, and keeps the real config in `options`;
+ * NextAuth merges them later. Reading the top-level one would make any test
+ * that expects null pass, the rejection one included, without running a single
+ * line of the code being pinned down.
  */
 function authorize(): Authorize {
-  const config = capturado.factory!();
+  const config = captured.factory!();
   const providers = config.providers as { options: { authorize: Authorize } }[];
   return providers[0].options.authorize;
 }
@@ -62,8 +62,8 @@ beforeEach(() => {
   process.env.AUTH_MODE = "auto";
 });
 
-describe("proveedor de credenciales", () => {
-  it("con AUTH_MODE=password no atiende la ceremonia de passkey", async () => {
+describe("credentials provider", () => {
+  it("with AUTH_MODE=password it does not serve the passkey ceremony", async () => {
     process.env.AUTH_MODE = "password";
     const result = await authorize()(
       { email: "ana@example.com", webauthnAssertion: "{}" },
@@ -73,7 +73,7 @@ describe("proveedor de credenciales", () => {
     expect(verifyWebAuthnAssertion).not.toHaveBeenCalled();
   });
 
-  it("con AUTH_MODE=auto la passkey sigue su camino", async () => {
+  it("with AUTH_MODE=auto the passkey carries on its way", async () => {
     verifyWebAuthnAssertion.mockResolvedValue({
       ok: true,
       user: { id: "u1", email: "ana@example.com", name: null, tokenVersion: 0 },
@@ -86,7 +86,7 @@ describe("proveedor de credenciales", () => {
     expect(verifyWebAuthnAssertion).toHaveBeenCalledOnce();
   });
 
-  it("la contraseña se resuelve en su rama y no toca la passkey", async () => {
+  it("the password is resolved in its own branch and does not touch the passkey", async () => {
     authorizePassword.mockResolvedValue({
       ok: true,
       user: { id: "u1", email: "ana@example.com", name: null, tokenVersion: 0 },

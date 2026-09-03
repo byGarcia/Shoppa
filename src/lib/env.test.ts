@@ -13,60 +13,60 @@ function withEnv(values: Record<string, string | undefined>): void {
 }
 
 describe("APP_ORIGIN", () => {
-  it("acepta un origen http de LAN y lo marca como no seguro", () => {
+  it("accepts an http LAN origin and marks it as not secure", () => {
     withEnv({ APP_ORIGIN: "http://192.168.1.50:3004" });
     expect(appOrigin().host).toBe("192.168.1.50:3004");
     expect(isSecureOrigin()).toBe(false);
   });
 
-  it("acepta https y lo marca como seguro", () => {
+  it("accepts https and marks it as secure", () => {
     withEnv({ APP_ORIGIN: "https://shopping.example.com" });
     expect(isSecureOrigin()).toBe(true);
   });
 
-  it("rechaza que falte", () => {
+  it("rejects it being missing", () => {
     withEnv({ APP_ORIGIN: undefined });
     expect(() => assertEnv()).toThrow(/APP_ORIGIN/);
   });
 
-  it("rechaza una URL que no es un origen", () => {
+  it("rejects a URL that is not an origin", () => {
     withEnv({ APP_ORIGIN: "no-es-una-url" });
     expect(() => assertEnv()).toThrow(/APP_ORIGIN/);
   });
 
-  it("rechaza un origen con ruta, porque delata una confusión", () => {
+  it("rejects an origin with a path, because it gives away a misunderstanding", () => {
     withEnv({ APP_ORIGIN: "https://shopping.example.com/app" });
     expect(() => assertEnv()).toThrow(/APP_ORIGIN/);
   });
 
-  it("rechaza un esquema que no es http ni https", () => {
+  it("rejects a scheme that is neither http nor https", () => {
     withEnv({ APP_ORIGIN: "ftp://shopping.example.com" });
     expect(() => assertEnv()).toThrow(/APP_ORIGIN/);
   });
 });
 
-describe("valores enumerados", () => {
-  it("AUTH_MODE es auto por defecto", () => {
+describe("enumerated values", () => {
+  it("AUTH_MODE defaults to auto", () => {
     withEnv({ APP_ORIGIN: "https://a.example", AUTH_MODE: undefined });
     expect(authMode()).toBe("auto");
   });
 
-  it("un AUTH_MODE desconocido impide arrancar en vez de caer al defecto", () => {
+  it("an unknown AUTH_MODE stops the app from starting instead of falling back to the default", () => {
     withEnv({ APP_ORIGIN: "https://a.example", AUTH_MODE: "passkeys" });
     expect(() => assertEnv()).toThrow(/AUTH_MODE/);
   });
 
-  it("TRUSTED_PROXY es none por defecto", () => {
+  it("TRUSTED_PROXY defaults to none", () => {
     withEnv({ APP_ORIGIN: "https://a.example", TRUSTED_PROXY: undefined });
     expect(trustedProxy()).toBe("none");
   });
 
-  it("un TRUSTED_PROXY desconocido impide arrancar", () => {
+  it("an unknown TRUSTED_PROXY stops the app from starting", () => {
     withEnv({ APP_ORIGIN: "https://a.example", TRUSTED_PROXY: "traefik" });
     expect(() => assertEnv()).toThrow(/TRUSTED_PROXY/);
   });
 
-  it("PRICE_FETCH_MODE es local por defecto", () => {
+  it("PRICE_FETCH_MODE defaults to local", () => {
     withEnv({ APP_ORIGIN: "https://a.example", PRICE_FETCH_MODE: undefined });
     expect(priceFetchMode()).toBe("local");
   });

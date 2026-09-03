@@ -9,7 +9,7 @@ import { useCategories } from "@/hooks/use-categories";
 import { useCategoryName } from "@/hooks/use-category-name";
 import { useStores } from "@/hooks/use-stores";
 
-export default function DiccionarioPage() {
+export default function DictionaryPage() {
   const t = useTranslations("settings.dictionary");
   const categoryName = useCategoryName();
   const { data: hints = [] } = useHints();

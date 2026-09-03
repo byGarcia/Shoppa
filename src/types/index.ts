@@ -53,7 +53,7 @@ export type VoiceTokenDTO = {
   lastUsedAt: string | null;
 };
 
-/** Una invitación vista desde Ajustes. Nunca lleva el token ni su hash. */
+/** An invitation as seen from Settings. Never carries the token or its hash. */
 export type InvitationDTO = {
   id: string;
   state: "pending" | "expired" | "redeemed" | "revoked";

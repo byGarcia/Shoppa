@@ -21,29 +21,29 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("freno por cuenta", () => {
-  it("deja pasar los primeros fallos", () => {
+describe("per-account throttle", () => {
+  it("lets the first failures through", () => {
     for (let i = 0; i < MAX_FAILURES - 1; i += 1) recordFailure("ana@example.com");
     expect(isThrottled("ana@example.com")).toBe(false);
   });
 
-  it("frena al llegar al máximo", () => {
+  it("throttles on reaching the maximum", () => {
     for (let i = 0; i < MAX_FAILURES; i += 1) recordFailure("ana@example.com");
     expect(isThrottled("ana@example.com")).toBe(true);
   });
 
-  it("no arrastra a otra cuenta", () => {
+  it("does not drag another account down with it", () => {
     for (let i = 0; i < MAX_FAILURES; i += 1) recordFailure("ana@example.com");
     expect(isThrottled("luis@example.com")).toBe(false);
   });
 
-  it("se suelta al pasar la ventana: es espera, no bloqueo permanente", () => {
+  it("releases once the window passes: it is a wait, not a permanent lockout", () => {
     for (let i = 0; i < MAX_FAILURES; i += 1) recordFailure("ana@example.com");
     vi.advanceTimersByTime(WINDOW_MS + 1);
     expect(isThrottled("ana@example.com")).toBe(false);
   });
 
-  it("un acierto borra el contador", () => {
+  it("a success clears the counter", () => {
     for (let i = 0; i < MAX_FAILURES - 1; i += 1) recordFailure("ana@example.com");
     recordSuccess("ana@example.com");
     recordFailure("ana@example.com");
@@ -51,76 +51,78 @@ describe("freno por cuenta", () => {
   });
 });
 
-describe("techo de la instancia", () => {
-  it("frena todo cuando los fallos por minuto se disparan, aunque sean de cuentas distintas", () => {
+describe("instance ceiling", () => {
+  it("throttles everything when failures per minute spike, even from different accounts", () => {
     for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
     expect(isThrottled("nueva@example.com")).toBe(true);
   });
 
-  it("no deja fuera a quien ya ha entrado alguna vez: el techo no es un cierre global", () => {
+  it("does not shut out anyone who has already logged in once: the ceiling is not a global lockout", () => {
     recordSuccess("ana@example.com");
     for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
     expect(isThrottled("ana@example.com")).toBe(false);
     expect(isThrottled("nadie@example.com")).toBe(true);
   });
 
-  it("normaliza la clave, o cambiar mayúsculas estrenaría contador", () => {
+  it("normalizes the key, or changing the capitalization would start a fresh counter", () => {
     for (let i = 0; i < MAX_FAILURES; i += 1) recordFailure("ana@example.com");
     expect(isThrottled("  Ana@Example.com  ")).toBe(true);
   });
 
-  it("no crece sin límite: con el mapa lleno de entradas vivas, deja de admitir claves nuevas", () => {
+  it("does not grow without bound: with the map full of live entries, it stops taking new keys", () => {
     for (let i = 0; i < 10_000; i += 1) recordFailure(`relleno${i}@example.com`);
-    // Se pasa el minuto para que el relleno no deje el techo de la instancia
-    // enganchado: sin esto, isThrottled cortaría por el techo y el test no
-    // llegaría a mirar el mapa, que es lo que quiere medir. Quince minutos no
-    // han pasado, así que las 10.000 entradas siguen vivas y el mapa, lleno.
+    // The minute is advanced so the filler does not leave the instance ceiling
+    // stuck on: without this, isThrottled would cut in at the ceiling and the
+    // test would never get to look at the map, which is what it wants to
+    // measure. Fifteen minutes have not passed, so the 10,000 entries are
+    // still live and the map is still full.
     vi.advanceTimersByTime(60_000 + 1);
     for (let i = 0; i < MAX_FAILURES; i += 1) recordFailure("desbordante@example.com");
     expect(isThrottled("desbordante@example.com")).toBe(false);
 
-    // Y que ese false venga del tope y no de otra casualidad: en cuanto el mapa
-    // se vacía al caducar la ventana, los mismos cinco fallos sí frenan.
+    // And that this false comes from the cap and not from some other
+    // coincidence: as soon as the map empties when the window expires, the
+    // same five failures do throttle.
     vi.advanceTimersByTime(WINDOW_MS + 1);
     for (let i = 0; i < MAX_FAILURES; i += 1) recordFailure("desbordante@example.com");
     expect(isThrottled("desbordante@example.com")).toBe(true);
   });
 
-  it("el techo se suelta al minuto", () => {
+  it("the ceiling releases after a minute", () => {
     for (let i = 0; i < INSTANCE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
     vi.advanceTimersByTime(60_000 + 1);
     expect(isThrottled("nueva@example.com")).toBe(false);
   });
 });
 
-describe("techo por ruta", () => {
-  it("deja pasar hasta el tope y corta la siguiente", () => {
+describe("per-route ceiling", () => {
+  it("lets requests through up to the cap and cuts off the next one", () => {
     for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) {
       expect(checkRouteCeiling("/api/ingest")).toBe(true);
     }
     expect(checkRouteCeiling("/api/ingest")).toBe(false);
   });
 
-  it("cada ruta lleva su propia cuenta", () => {
+  it("each route keeps its own count", () => {
     for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) checkRouteCeiling("/api/ingest");
     expect(checkRouteCeiling("/login")).toBe(true);
   });
 
-  it("se suelta al minuto: el hogar no se queda sin voz para siempre", () => {
+  it("releases after a minute: the household is not left without voice forever", () => {
     for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) checkRouteCeiling("/api/ingest");
     expect(checkRouteCeiling("/api/ingest")).toBe(false);
     vi.advanceTimersByTime(60_000 + 1);
     expect(checkRouteCeiling("/api/ingest")).toBe(true);
   });
 
-  it("es un techo compartido: no depende de quién llame", () => {
-    // No hay clave de llamante en juego; el mismo contador lo agotan visitantes
-    // distintos, que es justo lo que lo hace infalsificable por cabecera.
+  it("it is a shared ceiling: it does not depend on who is calling", () => {
+    // There is no caller key in play; the same counter is drained by different
+    // visitors, which is exactly what makes it unforgeable through a header.
     for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) checkRouteCeiling("/login");
     expect(checkRouteCeiling("/login")).toBe(false);
   });
 
-  it("no lo toca el freno por cuenta", () => {
+  it("the per-account throttle does not touch it", () => {
     for (let i = 0; i < ROUTE_CEILING_PER_MIN; i += 1) recordFailure(`cuenta${i}@example.com`);
     expect(checkRouteCeiling("/login")).toBe(true);
   });

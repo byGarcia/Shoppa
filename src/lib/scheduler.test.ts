@@ -9,9 +9,9 @@ import {
   stopPriceScheduler,
 } from "./scheduler.ts";
 
-// La pasada real toca la base de datos; aquí sólo interesa que el planificador
-// la llame y que sobreviva a que falle.
-const SIN_PROBLEMAS = {
+// The real pass touches the database; here all that matters is that the
+// scheduler calls it and that it survives the call failing.
+const CLEAN_RUN = {
   checked: 3,
   skipped: 0,
   alerts: 0,
@@ -31,8 +31,8 @@ const runPriceCheck = vi.hoisted(() =>
     telegramConfigured: true,
   })),
 );
-// Por defecto, una casa sin nada que seguir: así el arranque no dispara ninguna
-// recuperación y las pruebas del temporizador miden sólo el temporizador.
+// By default, a home with nothing tracked: that way startup fires no catch-up
+// run and the timer tests measure only the timer.
 const runHistory = vi.hoisted(() =>
   vi.fn(async (): Promise<{ activeProducts: number; lastCheckedAt: Date | null }> => ({
     activeProducts: 0,
@@ -46,7 +46,7 @@ const ORIGINAL = { ...process.env };
 beforeEach(() => {
   process.env.APP_ORIGIN = "https://a.example";
   runPriceCheck.mockClear();
-  runPriceCheck.mockImplementation(async () => ({ ...SIN_PROBLEMAS }));
+  runPriceCheck.mockImplementation(async () => ({ ...CLEAN_RUN }));
   runHistory.mockClear();
   runHistory.mockImplementation(async () => ({ activeProducts: 0, lastCheckedAt: null }));
 });
@@ -58,33 +58,33 @@ afterEach(() => {
   process.env = { ...ORIGINAL };
 });
 
-describe("planificador", () => {
-  it("no programa nada con off", () => {
+describe("scheduler", () => {
+  it("schedules nothing when off", () => {
     process.env.PRICE_CHECK_CRON = "off";
     expect(shouldSchedule()).toBe(false);
   });
 
-  it("programa por defecto a las ocho", () => {
+  it("schedules at eight by default", () => {
     delete process.env.PRICE_CHECK_CRON;
     expect(shouldSchedule()).toBe(true);
   });
 
-  it("interpreta la hora en la zona de TZ, no en UTC", () => {
+  it("reads the hour in the TZ zone, not in UTC", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "Europe/Madrid";
     const from = new Date("2026-09-02T00:00:00Z");
-    // En horario de verano peninsular, las 08:00 locales son las 06:00 UTC.
+    // Under mainland Spain's summer time, 08:00 local is 06:00 UTC.
     expect(nextRunAt(from).toISOString()).toBe("2026-09-02T06:00:00.000Z");
   });
 
-  it("una expresión ilegible impide arrancar en vez de no hacer nada en silencio", () => {
+  it("an unreadable expression stops startup instead of silently doing nothing", () => {
     process.env.PRICE_CHECK_CRON = "todos los días";
     expect(() => nextRunAt(new Date())).toThrow(/PRICE_CHECK_CRON/);
   });
 });
 
-describe("la zona horaria", () => {
-  it("la misma expresión cae en instantes distintos según TZ", () => {
+describe("the time zone", () => {
+  it("the same expression lands on different instants depending on TZ", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     const from = new Date("2026-09-02T00:00:00Z");
 
@@ -95,19 +95,19 @@ describe("la zona horaria", () => {
     expect(nextRunAt(from).toISOString()).toBe("2026-09-02T12:00:00.000Z");
 
     process.env.TZ = "Asia/Tokyo";
-    // Las 08:00 de Tokio del día 2 ya han pasado a las 00:00 UTC del día 2.
+    // Tokyo's 08:00 on the 2nd has already gone by at 00:00 UTC on the 2nd.
     expect(nextRunAt(from).toISOString()).toBe("2026-09-02T23:00:00.000Z");
   });
 
-  it("sin TZ un contenedor razona en UTC", () => {
+  it("with no TZ a container reasons in UTC", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     delete process.env.TZ;
     const from = new Date("2026-09-02T00:00:00Z");
     expect(nextRunAt(from).toISOString()).toBe("2026-09-02T08:00:00.000Z");
   });
 
-  it("cruza el cambio de hora sin desplazar la cita", () => {
-    // Madrid pasa de UTC+2 a UTC+1 la madrugada del 25 de octubre de 2026.
+  it("crosses the clock change without shifting the appointment", () => {
+    // Madrid goes from UTC+2 to UTC+1 in the early hours of 25 October 2026.
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "Europe/Madrid";
     expect(nextRunAt(new Date("2026-10-24T08:00:00Z")).toISOString()).toBe(
@@ -115,10 +115,10 @@ describe("la zona horaria", () => {
     );
   });
 
-  it("una hora que ese día no existe se salta, no se adelanta ni se atrasa", () => {
-    // La madrugada del 28 de marzo de 2027 Madrid salta de las 02:00 a las
-    // 03:00: ese día no hay ninguna 02:00. Una cita a esa hora tiene que
-    // esperar al día siguiente, que en UTC son las 00:00 del 29.
+  it("an hour that does not exist that day is skipped, not moved earlier or later", () => {
+    // In the early hours of 28 March 2027 Madrid jumps from 02:00 to 03:00:
+    // there is no 02:00 at all that day. An appointment at that hour has to
+    // wait for the next day, which in UTC is 00:00 on the 29th.
     process.env.PRICE_CHECK_CRON = "0 2 * * *";
     process.env.TZ = "Europe/Madrid";
     expect(nextRunAt(new Date("2027-03-27T12:00:00Z")).toISOString()).toBe(
@@ -126,29 +126,29 @@ describe("la zona horaria", () => {
     );
   });
 
-  it("una TZ inexistente falla nombrando la variable", () => {
+  it("a nonexistent TZ fails naming the variable", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "Marte/Olympus";
     expect(() => nextRunAt(new Date("2026-09-02T00:00:00Z"))).toThrow(/TZ/);
   });
 });
 
-describe("el subconjunto de cron que se acepta", () => {
-  it("admite el comodín en minuto y hora", () => {
+describe("the cron subset that is accepted", () => {
+  it("accepts the wildcard in minute and hour", () => {
     expect(parseCron("* * * * *").minutes).toHaveLength(60);
     expect(parseCron("* * * * *").hours).toHaveLength(24);
   });
 
-  it("admite enteros", () => {
+  it("accepts plain integers", () => {
     expect(parseCron("30 6 * * *")).toEqual({ minutes: [30], hours: [6] });
   });
 
-  it("admite pasos", () => {
+  it("accepts steps", () => {
     expect(parseCron("0 */6 * * *")).toEqual({ minutes: [0], hours: [0, 6, 12, 18] });
     expect(parseCron("*/15 8 * * *")).toEqual({ minutes: [0, 15, 30, 45], hours: [8] });
   });
 
-  it("cada seis horas cae seis horas después, no al día siguiente", () => {
+  it("every six hours lands six hours later, not the next day", () => {
     process.env.PRICE_CHECK_CRON = "0 */6 * * *";
     process.env.TZ = "UTC";
     expect(nextRunAt(new Date("2026-09-02T07:13:00Z")).toISOString()).toBe(
@@ -156,43 +156,43 @@ describe("el subconjunto de cron que se acepta", () => {
     );
   });
 
-  it("rechaza rangos y listas, que no se implementan", () => {
+  it("rejects ranges and lists, which are not implemented", () => {
     expect(() => parseCron("0 8-10 * * *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("0,30 8 * * *")).toThrow(/PRICE_CHECK_CRON/);
   });
 
-  it("rechaza el día del mes, el mes y el día de la semana distintos de *", () => {
+  it("rejects day of month, month and day of week other than *", () => {
     expect(() => parseCron("0 8 1 * *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("0 8 * 3 *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("0 8 * * 1")).toThrow(/PRICE_CHECK_CRON/);
   });
 
-  it("rechaza valores fuera de rango", () => {
+  it("rejects out-of-range values", () => {
     expect(() => parseCron("60 8 * * *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("0 24 * * *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("*/0 8 * * *")).toThrow(/PRICE_CHECK_CRON/);
   });
 
-  it("rechaza un número de campos que no sea cinco", () => {
+  it("rejects a field count other than five", () => {
     expect(() => parseCron("0 8 * *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("0 8 * * * *")).toThrow(/PRICE_CHECK_CRON/);
     expect(() => parseCron("")).toThrow(/PRICE_CHECK_CRON/);
   });
 
-  it("perdona los espacios de sobra, que es un desliz al escribir y no otra intención", () => {
+  it("forgives extra spaces, which are a typing slip and not a different intent", () => {
     expect(parseCron("  0   8  *  *  * ")).toEqual({ minutes: [0], hours: [8] });
   });
 });
 
-describe("el temporizador", () => {
-  it("con off no arma nada", () => {
+describe("the timer", () => {
+  it("with off it arms nothing", () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T00:00:00Z") });
     process.env.PRICE_CHECK_CRON = "off";
     startPriceScheduler();
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("dispara la pasada cuando llega la hora", async () => {
+  it("fires the pass when the hour arrives", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T07:59:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -204,7 +204,7 @@ describe("el temporizador", () => {
     expect(runPriceCheck).toHaveBeenCalledTimes(1);
   });
 
-  it("no vuelve a disparar hasta la cita siguiente", async () => {
+  it("does not fire again until the next appointment", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T07:59:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -217,7 +217,7 @@ describe("el temporizador", () => {
     expect(runPriceCheck).toHaveBeenCalledTimes(2);
   });
 
-  it("si la pasada revienta, mañana se vuelve a intentar", async () => {
+  it("if the pass blows up, it tries again tomorrow", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T07:59:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -229,24 +229,24 @@ describe("el temporizador", () => {
     expect(runPriceCheck).toHaveBeenCalledTimes(1);
     expect(error).toHaveBeenCalled();
 
-    // El temporizador sigue vivo: un mal día no cancela el calendario.
+    // The timer is still alive: one bad day does not cancel the calendar.
     await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
     expect(runPriceCheck).toHaveBeenCalledTimes(2);
   });
 
-  it("dos arranques no apilan dos planificadores", () => {
+  it("two starts do not stack two schedulers", () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T00:00:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
 
     startPriceScheduler();
-    const armados = vi.getTimerCount();
+    const armed = vi.getTimerCount();
     startPriceScheduler();
     startPriceScheduler();
-    expect(vi.getTimerCount()).toBe(armados);
+    expect(vi.getTimerCount()).toBe(armed);
   });
 
-  it("una expresión ilegible no arma nada y lo dice por el log", () => {
+  it("an unreadable expression arms nothing and says so in the log", () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T00:00:00Z") });
     process.env.PRICE_CHECK_CRON = "todos los días";
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -258,23 +258,23 @@ describe("el temporizador", () => {
   });
 });
 
-describe("la cita que ya pasó", () => {
-  it("previousRunAt mira hacia atrás en la zona de TZ", () => {
+describe("the appointment that already went by", () => {
+  it("previousRunAt looks backwards in the TZ zone", () => {
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "Europe/Madrid";
-    // A las 09:00 de Madrid, la cita de las 08:00 acaba de pasar.
+    // At 09:00 in Madrid, the 08:00 appointment has just gone by.
     expect(previousRunAt(new Date("2026-09-02T07:00:00Z")).toISOString()).toBe(
       "2026-09-02T06:00:00.000Z",
     );
-    // A las 07:00 de Madrid, la última fue la de ayer.
+    // At 07:00 in Madrid, the last one was yesterday's.
     expect(previousRunAt(new Date("2026-09-02T05:00:00Z")).toISOString()).toBe(
       "2026-09-01T06:00:00.000Z",
     );
   });
 
-  it("un contenedor que arranca tarde recupera la pasada que se perdió", async () => {
-    // Reinicio de madrugada, primera petición a las 09:00: la cita de las 08:00
-    // pasó mientras no había nadie escuchando y nadie la habría echado en falta.
+  it("a container that starts late catches up the pass it missed", async () => {
+    // Restart in the early hours, first request at 09:00: the 08:00 appointment
+    // went by with nobody listening, and nobody would have missed it.
     vi.useFakeTimers({ now: new Date("2026-09-02T09:00:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -290,7 +290,7 @@ describe("la cita que ya pasó", () => {
     expect(runPriceCheck).toHaveBeenCalledTimes(1);
   });
 
-  it("si la pasada de hoy ya se hizo, no se repite al arrancar", async () => {
+  it("if today's pass already ran, it is not repeated at startup", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T09:00:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -305,8 +305,8 @@ describe("la cita que ya pasó", () => {
     expect(runPriceCheck).not.toHaveBeenCalled();
   });
 
-  it("arrancar ANTES de la cita no la adelanta", async () => {
-    // Lo que separa «recuperar lo perdido» de «comprobar en cada arranque».
+  it("starting BEFORE the appointment does not bring it forward", async () => {
+    // What separates "catch up what was missed" from "check on every startup".
     vi.useFakeTimers({ now: new Date("2026-09-02T07:00:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -321,7 +321,7 @@ describe("la cita que ya pasó", () => {
     expect(runPriceCheck).not.toHaveBeenCalled();
   });
 
-  it("sin productos que seguir no se recupera nada", async () => {
+  it("with no products tracked nothing is caught up", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T09:00:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -333,7 +333,7 @@ describe("la cita que ya pasó", () => {
     expect(runPriceCheck).not.toHaveBeenCalled();
   });
 
-  it("con off no se recupera nada tampoco", async () => {
+  it("with off nothing is caught up either", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T09:00:00Z") });
     process.env.PRICE_CHECK_CRON = "off";
     runHistory.mockResolvedValue({ activeProducts: 4, lastCheckedAt: null });
@@ -345,7 +345,7 @@ describe("la cita que ya pasó", () => {
     expect(runHistory).not.toHaveBeenCalled();
   });
 
-  it("si la base de datos no contesta, el calendario sigue armado", async () => {
+  it("if the database does not answer, the calendar stays armed", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T09:00:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
@@ -360,11 +360,11 @@ describe("la cita que ya pasó", () => {
   });
 });
 
-describe("dos pasadas a la vez", () => {
-  it("una cita que llega con la anterior en curso se salta", async () => {
-    // La gramática admite «cada minuto» y una pasada puede durar más de uno.
-    // Dos solapadas leerían el mismo lastCheckedAt rancio y volverían a avisar
-    // de la misma bajada.
+describe("two passes at once", () => {
+  it("an appointment that arrives with the previous one still running is skipped", async () => {
+    // The grammar accepts "every minute" and a pass can take longer than one.
+    // Two overlapping passes would read the same stale lastCheckedAt and alert
+    // about the same price drop twice.
     vi.useFakeTimers({ now: new Date("2026-09-02T07:59:30Z") });
     process.env.PRICE_CHECK_CRON = "* * * * *";
     process.env.TZ = "UTC";
@@ -378,7 +378,7 @@ describe("dos pasadas a la vez", () => {
     expect(warn.mock.calls.flat().join(" ")).toMatch(/previous pass is still running/);
   });
 
-  it("cuando la anterior termina, la cita siguiente vuelve a disparar", async () => {
+  it("once the previous one finishes, the next appointment fires again", async () => {
     vi.useFakeTimers({ now: new Date("2026-09-02T07:59:30Z") });
     process.env.PRICE_CHECK_CRON = "* * * * *";
     process.env.TZ = "UTC";
@@ -391,40 +391,40 @@ describe("dos pasadas a la vez", () => {
   });
 });
 
-describe("lo que dice el log al terminar", () => {
-  async function pasadaCon(summary: Record<string, unknown>) {
+describe("what the log says when it finishes", () => {
+  async function runWith(summary: Record<string, unknown>) {
     vi.useFakeTimers({ now: new Date("2026-09-02T07:59:00Z") });
     process.env.PRICE_CHECK_CRON = "0 8 * * *";
     process.env.TZ = "UTC";
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    runPriceCheck.mockResolvedValue({ ...SIN_PROBLEMAS, ...summary });
+    runPriceCheck.mockResolvedValue({ ...CLEAN_RUN, ...summary });
 
     startPriceScheduler();
     await vi.advanceTimersByTimeAsync(61_000);
     return { info, warn };
   }
 
-  it("una pasada limpia es una línea informativa", async () => {
-    const { info, warn } = await pasadaCon({});
+  it("a clean pass is a single info line", async () => {
+    const { info, warn } = await runWith({});
     expect(info.mock.calls.flat().join(" ")).toMatch(/daily pass finished/);
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("productos que no se han podido leer no pasan por informativos", async () => {
-    const { warn } = await pasadaCon({ checked: 40, failures: 40 });
+  it("products that could not be read do not pass as info", async () => {
+    const { warn } = await runWith({ checked: 40, failures: 40 });
     expect(warn.mock.calls.flat().join(" ")).toMatch(/40 product\(s\) could not be read/);
   });
 
-  it("media lista sin comprobar tampoco", async () => {
-    const { warn } = await pasadaCon({ pending: 22 });
+  it("half the list left unchecked does not either", async () => {
+    const { warn } = await runWith({ pending: 22 });
     expect(warn.mock.calls.flat().join(" ")).toMatch(/22 left unchecked/);
   });
 
-  it("avisos que no llegan a nadie tampoco, y dice que Telegram no está puesto", async () => {
-    const { warn } = await pasadaCon({ alerts: 3, notified: 0, telegramConfigured: false });
-    const texto = warn.mock.calls.flat().join(" ");
-    expect(texto).toMatch(/3 of 3 alert\(s\) not delivered/);
-    expect(texto).toMatch(/Telegram is not configured/);
+  it("alerts that reach nobody do not either, and it says Telegram is not set up", async () => {
+    const { warn } = await runWith({ alerts: 3, notified: 0, telegramConfigured: false });
+    const text = warn.mock.calls.flat().join(" ");
+    expect(text).toMatch(/3 of 3 alert\(s\) not delivered/);
+    expect(text).toMatch(/Telegram is not configured/);
   });
 });

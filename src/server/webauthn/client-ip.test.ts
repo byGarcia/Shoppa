@@ -7,7 +7,7 @@ function headers(values: Record<string, string>): Headers {
 }
 
 describe("clientIPFromHeaders", () => {
-  it("con none no se cree ninguna cabecera", () => {
+  it("with none it trusts no header", () => {
     const ip = clientIPFromHeaders(
       headers({ "x-real-ip": "1.2.3.4", "x-forwarded-for": "5.6.7.8", "cf-connecting-ip": "9.9.9.9" }),
       { trustedProxy: "none" },
@@ -15,7 +15,7 @@ describe("clientIPFromHeaders", () => {
     expect(ip).toBeNull();
   });
 
-  it("con x-real-ip se cree sólo esa", () => {
+  it("with x-real-ip it trusts only that one", () => {
     expect(
       clientIPFromHeaders(headers({ "x-real-ip": "1.2.3.4", "x-forwarded-for": "5.6.7.8" }), {
         trustedProxy: "x-real-ip",
@@ -23,19 +23,19 @@ describe("clientIPFromHeaders", () => {
     ).toBe("1.2.3.4");
   });
 
-  it("con x-real-ip y sin esa cabecera, no inventa desde x-forwarded-for", () => {
+  it("with x-real-ip and that header absent, it does not make one up from x-forwarded-for", () => {
     expect(
       clientIPFromHeaders(headers({ "x-forwarded-for": "5.6.7.8" }), { trustedProxy: "x-real-ip" }),
     ).toBeNull();
   });
 
-  it("con xff toma la entrada de la izquierda", () => {
+  it("with xff it takes the leftmost entry", () => {
     expect(
       clientIPFromHeaders(headers({ "x-forwarded-for": "5.6.7.8, 192.168.0.1" }), { trustedProxy: "xff" }),
     ).toBe("5.6.7.8");
   });
 
-  it("con cloudflare se cree cf-connecting-ip y no x-real-ip", () => {
+  it("with cloudflare it trusts cf-connecting-ip and not x-real-ip", () => {
     expect(
       clientIPFromHeaders(headers({ "cf-connecting-ip": "9.9.9.9", "x-real-ip": "1.2.3.4" }), {
         trustedProxy: "cloudflare",
@@ -43,10 +43,10 @@ describe("clientIPFromHeaders", () => {
     ).toBe("9.9.9.9");
   });
 
-  // Una cabecera de un espacio es «truthy». Devuelta en crudo sería una clave
-  // constante compartida por todo el mundo —un solo cubo para todos— y entraría
-  // como "" en security_logs.ipAddress en vez de como null.
-  it("una cabecera en blanco es nula, no una clave compartida", () => {
+  // A header holding a single space is truthy. Returned raw it would be a
+  // constant key shared by everyone — one bucket for all — and would go into
+  // security_logs.ipAddress as "" instead of as null.
+  it("a blank header is null, not a shared key", () => {
     expect(clientIPFromHeaders(headers({ "x-real-ip": "   " }), { trustedProxy: "x-real-ip" })).toBeNull();
     expect(
       clientIPFromHeaders(headers({ "cf-connecting-ip": " " }), { trustedProxy: "cloudflare" }),
@@ -54,7 +54,7 @@ describe("clientIPFromHeaders", () => {
     expect(clientIPFromHeaders(headers({ "x-forwarded-for": " , 192.168.0.1" }), { trustedProxy: "xff" })).toBeNull();
   });
 
-  it("una cabecera vacía es nula", () => {
+  it("an empty header is null", () => {
     expect(clientIPFromHeaders(headers({ "x-real-ip": "" }), { trustedProxy: "x-real-ip" })).toBeNull();
     expect(
       clientIPFromHeaders(headers({ "cf-connecting-ip": "" }), { trustedProxy: "cloudflare" }),
@@ -62,7 +62,7 @@ describe("clientIPFromHeaders", () => {
     expect(clientIPFromHeaders(headers({ "x-forwarded-for": "" }), { trustedProxy: "xff" })).toBeNull();
   });
 
-  it("recorta los espacios alrededor del valor bueno", () => {
+  it("trims the whitespace around a good value", () => {
     expect(
       clientIPFromHeaders(headers({ "x-real-ip": "  1.2.3.4  " }), { trustedProxy: "x-real-ip" }),
     ).toBe("1.2.3.4");

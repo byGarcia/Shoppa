@@ -156,7 +156,7 @@ export function InviteCard() {
                 className="rounded-[13px] border border-line bg-surface px-3.5 py-3 shadow-[var(--e1)]"
               >
                 <span className="block truncate text-[15px] font-semibold text-ink">
-                  {titulo(invitation, t)}
+                  {heading(invitation, t)}
                 </span>
                 <span className="block text-xs font-medium text-muted">
                   {t("spentMeta", {
@@ -173,7 +173,7 @@ export function InviteCard() {
   );
 }
 
-function titulo(invitation: InvitationDTO, t: (key: string, values?: Record<string, string>) => string): string {
+function heading(invitation: InvitationDTO, t: (key: string, values?: Record<string, string>) => string): string {
   switch (invitation.state) {
     case "redeemed":
       return t("usedBy", { email: invitation.redeemedByEmail ?? "" });

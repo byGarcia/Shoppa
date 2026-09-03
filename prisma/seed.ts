@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import { getClient } from "../scripts/lib/db.mjs";
-import { cargaEnvLocal } from "../src/entorno.ts";
+import { loadLocalEnv } from "../src/env-local.ts";
 import { FACTORY_CATEGORIES, FACTORY_HINTS } from "./seed-data.ts";
 
 /**
@@ -133,7 +133,7 @@ export async function runSeed(): Promise<SeedResult> {
 // test runner do; inside the container that file is absent and DATABASE_URL
 // comes from the environment.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  cargaEnvLocal();
+  loadLocalEnv();
   const result = await runSeed();
   if (result.status === "seeded") {
     console.info(

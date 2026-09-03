@@ -1,18 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * El coste real de `local` es la espera: HOME_FETCH_WAIT_MS son 30 s por
- * producto esperando a un lector que en esta modalidad no existe. Aquí se
- * comprueba que la cola ni se toca.
+ * The real cost of `local` is the wait: HOME_FETCH_WAIT_MS is 30 s per product
+ * waiting for a reader that in this mode does not exist. What is checked here
+ * is that the queue is not touched at all.
  */
 const enqueueFetch = vi.hoisted(() => vi.fn((url: string): unknown => ({ id: "1", url })));
 const awaitFetch = vi.hoisted(() =>
-  // Si alguien la llama, la prueba se cuelga en vez de pasar por casualidad.
+  // If anyone calls it, the test hangs instead of passing by accident.
   vi.fn((): Promise<unknown> => new Promise(() => {})),
 );
 vi.mock("./fetch-jobs", () => ({ enqueueFetch, awaitFetch }));
 
-// Sin esto, comprobar la URL sale a Internet a resolver el dominio.
+// Without this, checking the URL goes out to the Internet to resolve the domain.
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn(async () => [{ address: "93.184.216.34" }]),
 }));
@@ -31,14 +31,14 @@ afterEach(() => {
   process.env = { ...ORIGINAL };
 });
 
-const PAGINA = '<html><head><title>Producto</title></head><body>12,50 EUR</body></html>';
+const PAGE = '<html><head><title>Producto</title></head><body>12,50 EUR</body></html>';
 
-function respuesta(body: string): Response {
+function response(body: string): Response {
   return new Response(body, { status: 200, headers: { "content-type": "text/html" } });
 }
 
-describe("fetchProductHtml en modo local", () => {
-  it("no pide ayuda a casa aunque la tienda dé la callada por respuesta", async () => {
+describe("fetchProductHtml in local mode", () => {
+  it("does not ask home for help even when the store answers with silence", async () => {
     process.env.PRICE_FETCH_MODE = "local";
     vi.stubGlobal(
       "fetch",
@@ -46,43 +46,43 @@ describe("fetchProductHtml en modo local", () => {
         throw new Error("connect ECONNREFUSED");
       }),
     );
-    // Relojes falsos que nadie adelanta: si la promesa se resolviera esperando
-    // un temporizador, esta prueba no terminaría.
+    // Fake timers that nobody advances: if the promise resolved by waiting on
+    // a timer, this test would never finish.
     vi.useFakeTimers();
 
     const { fetchProductHtml } = await import("./price-fetch.ts");
-    const resultado = await fetchProductHtml("https://tienda.example/producto");
+    const result = await fetchProductHtml("https://tienda.example/producto");
 
-    expect(resultado.ok).toBe(false);
+    expect(result.ok).toBe(false);
     expect(enqueueFetch).not.toHaveBeenCalled();
     expect(awaitFetch).not.toHaveBeenCalled();
   });
 
-  it("tampoco la pide en las tiendas que la piden siempre", async () => {
-    // Amazon es la tienda para la que el lector de casa va PRIMERO. En local no
-    // hay lector, así que la petición tiene que salir de aquí igualmente.
+  it("does not ask for it on the stores that always ask for it either", async () => {
+    // Amazon is the store for which the home reader goes FIRST. In local mode
+    // there is no reader, so the request has to go out from here anyway.
     process.env.PRICE_FETCH_MODE = "local";
-    const doble = vi.fn(async () => respuesta(PAGINA));
-    vi.stubGlobal("fetch", doble);
+    const stub = vi.fn(async () => response(PAGE));
+    vi.stubGlobal("fetch", stub);
     vi.useFakeTimers();
 
     const { fetchProductHtml } = await import("./price-fetch.ts");
-    const resultado = await fetchProductHtml("https://www.amazon.es/dp/B000000000");
+    const result = await fetchProductHtml("https://www.amazon.es/dp/B000000000");
 
-    expect(resultado.ok).toBe(true);
+    expect(result.ok).toBe(true);
     expect(enqueueFetch).not.toHaveBeenCalled();
-    expect(doble).toHaveBeenCalled();
+    expect(stub).toHaveBeenCalled();
   });
 
-  it("en modo assisted la cola vuelve a usarse", async () => {
+  it("in assisted mode the queue is used again", async () => {
     process.env.PRICE_FETCH_MODE = "assisted";
-    awaitFetch.mockImplementation(async () => ({ html: PAGINA }));
-    vi.stubGlobal("fetch", vi.fn(async () => respuesta(PAGINA)));
+    awaitFetch.mockImplementation(async () => ({ html: PAGE }));
+    vi.stubGlobal("fetch", vi.fn(async () => response(PAGE)));
 
     const { fetchProductHtml } = await import("./price-fetch.ts");
-    const resultado = await fetchProductHtml("https://www.amazon.es/dp/B000000000");
+    const result = await fetchProductHtml("https://www.amazon.es/dp/B000000000");
 
-    expect(resultado.ok).toBe(true);
+    expect(result.ok).toBe(true);
     expect(enqueueFetch).toHaveBeenCalledWith("https://www.amazon.es/dp/B000000000");
   });
 });

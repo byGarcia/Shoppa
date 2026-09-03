@@ -25,8 +25,15 @@ PostgreSQL database, one container. `README.md` is what it is; `docs/` is how to
 
 ## Code
 
-- **Comments and identifiers in `src/lib`, `src/server` and `src/app` are English.** Test
-  descriptions are Spanish, following this repository's convention.
+- **Everything a reader sees is English: comments, identifiers and test descriptions.** Test
+  descriptions used to be Spanish by convention; they are not any more. The repository is public,
+  so the only Spanish left is Spanish on purpose: `messages/es.json`, the Spanish category names
+  and dictionary entries in `prisma/seed-data.ts`, the `name (es)` column of
+  `prisma/factory-categories.md`, the Spanish shopping words a test uses as fixture data, and
+  Spanish quoted inside a comment as an example of what a user typed or of a catalog line the code
+  is about to assert on. `node scripts/check-i18n.mjs` checks comments in `src`, `prisma` and
+  `scripts` as well as literals in `src`, so a Spanish comment fails `pnpm check`; it allows quoted
+  Spanish, which is how the four exceptions above stay writable.
 - **All interface copy lives in `messages/es.json` and `messages/en.json`**, never in a component.
   `node scripts/check-i18n.mjs` is the tripwire and runs inside `pnpm check`; it allows Spanish only
   where `scripts/check-i18n.mjs` itself says why. Both catalogs must carry the same keys.
@@ -34,7 +41,8 @@ PostgreSQL database, one container. `README.md` is what it is; `docs/` is how to
   configuration errors and everything `scripts/auth-password.mjs` prints. It has no locale to read —
   a log has no `Accept-Language` — and its reader is whoever wrote the compose file.
 - **`pnpm check` (lint, typecheck, i18n, tests, build) passes before every commit.**
-- **Commit messages are Spanish, conventional-commit prefixed.**
+- **Commit messages are English, conventional-commit prefixed.** The history is public and is read
+  by people who do not speak Spanish; the messages before the repository was opened are not.
 
 ## Data
 

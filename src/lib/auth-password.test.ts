@@ -16,7 +16,7 @@ beforeEach(() => {
 });
 
 describe("authorizePassword", () => {
-  it("acepta la contraseña correcta", async () => {
+  it("accepts the correct password", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
       passwordHash: await hashPassword("una contraseña larga"),
@@ -25,7 +25,7 @@ describe("authorizePassword", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("rechaza la equivocada", async () => {
+  it("rejects the wrong one", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
       passwordHash: await hashPassword("una contraseña larga"),
@@ -33,7 +33,7 @@ describe("authorizePassword", () => {
     expect((await authorizePassword("ana@example.com", "otra cosa distinta")).ok).toBe(false);
   });
 
-  it("con AUTH_MODE=passkey no atiende contraseñas en absoluto", async () => {
+  it("with AUTH_MODE=passkey it does not serve passwords at all", async () => {
     process.env.AUTH_MODE = "passkey";
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
@@ -44,24 +44,24 @@ describe("authorizePassword", () => {
     expect(findUnique).not.toHaveBeenCalled();
   });
 
-  it("un usuario con passkey y sin hash no entra con contraseña", async () => {
+  it("a user with a passkey and no hash cannot get in with a password", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0, passwordHash: null,
     });
     expect((await authorizePassword("ana@example.com", "lo que sea largo")).ok).toBe(false);
   });
 
-  it("hace el mismo trabajo criptográfico cuando el correo no existe", async () => {
-    // Sin medir tiempos: un reloj en una máquina cargada no prueba nada. El
-    // contador de derivaciones es lo que hace falsable que burnDummyHash no
-    // sea una función vacía.
+  it("does the same cryptographic work when the email does not exist", async () => {
+    // No timing measurements: a clock on a loaded machine proves nothing. The
+    // derivation counter is what makes it falsifiable that burnDummyHash is
+    // not an empty function.
     findUnique.mockResolvedValue(null);
     const before = DERIVATION_COUNT;
     await authorizePassword("nadie@example.com", "lo que sea largo");
     expect(DERIVATION_COUNT).toBe(before + 1);
   });
 
-  it("frena tras cinco fallos seguidos de la misma cuenta", async () => {
+  it("throttles after five consecutive failures from the same account", async () => {
     findUnique.mockResolvedValue({
       id: "u1", email: "ana@example.com", name: null, tokenVersion: 0,
       passwordHash: await hashPassword("una contraseña larga"),
@@ -71,10 +71,10 @@ describe("authorizePassword", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("el camino frenado también paga la derivación", async () => {
-    // isThrottled corta antes de verifyPassword: sin quemar un hash, la
-    // respuesta frenada vuelve en microsegundos y delata qué cuentas están
-    // bajo ataque, y por tanto cuáles existen.
+  it("the throttled path pays for the derivation too", async () => {
+    // isThrottled cuts in before verifyPassword: without burning a hash, the
+    // throttled response comes back in microseconds and gives away which
+    // accounts are under attack, and therefore which ones exist.
     findUnique.mockResolvedValue(null);
     for (let i = 0; i < 5; i += 1) await authorizePassword("ana@example.com", "mal mal mal mal");
     const before = DERIVATION_COUNT;
@@ -83,16 +83,16 @@ describe("authorizePassword", () => {
     expect(DERIVATION_COUNT).toBe(before + 1);
   });
 
-  it("cuenta los fallos aunque la cuenta no exista", async () => {
-    // Contar sólo las cuentas reales convertiría el freno en un oráculo de
-    // enumeración más limpio que el que cierra burnDummyHash.
+  it("counts failures even when the account does not exist", async () => {
+    // Counting only the real accounts would turn the throttle into a cleaner
+    // enumeration oracle than the one burnDummyHash closes.
     findUnique.mockResolvedValue(null);
     for (let i = 0; i < 5; i += 1) await authorizePassword("nadie@example.com", "lo que sea largo");
     const result = await authorizePassword("nadie@example.com", "lo que sea largo");
     expect(result).toEqual({ ok: false, reason: "throttled" });
   });
 
-  it("normaliza la cuenta frenada igual que el módulo del freno", async () => {
+  it("normalizes the throttled account the same way the throttle module does", async () => {
     findUnique.mockResolvedValue(null);
     for (let i = 0; i < 5; i += 1) await authorizePassword("ana@example.com", "lo que sea largo");
     const result = await authorizePassword("  Ana@Example.com  ", "lo que sea largo");

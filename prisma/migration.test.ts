@@ -36,30 +36,30 @@ function readRecordedCategories(): RecordedCategory[] {
 
 const RECORDED = readRecordedCategories();
 
-describe("datos de fábrica", () => {
-  it("son doce", () => {
+describe("factory data", () => {
+  it("are twelve", () => {
     expect(FACTORY_CATEGORIES).toHaveLength(12);
   });
 
-  it("todos los ids llevan el prefijo del que cuelgan los colores", () => {
+  it("every id carries the prefix the colours hang from", () => {
     for (const category of FACTORY_CATEGORIES) {
       expect(category.id.startsWith("gcat-")).toBe(true);
     }
   });
 
-  it("no hay ids ni órdenes repetidos", () => {
+  it("has no repeated ids or orders", () => {
     expect(new Set(FACTORY_CATEGORIES.map((c) => c.id)).size).toBe(12);
     expect(new Set(FACTORY_CATEGORIES.map((c) => c.order)).size).toBe(12);
   });
 
-  it("tienen nombre en los dos idiomas", () => {
+  it("have a name in both languages", () => {
     for (const category of FACTORY_CATEGORIES) {
       expect(category.es.trim()).not.toBe("");
       expect(category.en.trim()).not.toBe("");
     }
   });
 
-  it("reproducen, carácter a carácter, lo leído de la instalación de origen", () => {
+  it("reproduce, character for character, what was read from the source installation", () => {
     expect(RECORDED).toHaveLength(12);
     expect(FACTORY_CATEGORIES.map((c) => ({ id: c.id, name: c.es, icon: c.icon, order: c.order }))).toEqual(
       RECORDED,
@@ -71,18 +71,18 @@ describe("datos de fábrica", () => {
 // against the names an existing installation already holds. Drift breaks
 // nothing visible: the category quietly keeps a null key and stops being
 // translatable, with nothing failing to say so.
-describe("relleno de name_key de la migración", () => {
-  it("existe la migración public_release", () => {
+describe("the migration's name_key back-fill", () => {
+  it("the public_release migration exists", () => {
     expect(PUBLIC_RELEASE).toBeDefined();
   });
 
-  it("reclama cada categoría por su id y por el nombre leído de la instalación", () => {
+  it("claims each category by its id and by the name read from the installation", () => {
     for (const recorded of RECORDED) {
       expect(MIGRATION_SQL).toContain(`WHERE id = '${recorded.id}' AND name = '${recorded.name}';`);
     }
   });
 
-  it("son doce sentencias vivas, no texto dentro de un comentario", () => {
+  it("are twelve live statements, not text inside a comment", () => {
     const claims = MIGRATION_SQL.match(/^UPDATE "grocery_categories" SET name_key = id$/gm);
     expect(claims).toHaveLength(12);
   });
@@ -92,8 +92,8 @@ describe("relleno de name_key de la migración", () => {
 // (and, since the seed exists, on the seed too), and Prisma 7.9.1
 // does not wrap a migration in a transaction. Losing these two lines turns a
 // failed statement into a half-migrated database that also refuses to boot.
-describe("la migración es atómica", () => {
-  it("se abre en BEGIN y se cierra en COMMIT", () => {
+describe("the migration is atomic", () => {
+  it("opens with BEGIN and closes with COMMIT", () => {
     expect(MIGRATION_SQL.split("\n").find((l) => l.trim() && !l.startsWith("--"))).toBe("BEGIN;");
     expect(MIGRATION_SQL.trimEnd().endsWith("\nCOMMIT;")).toBe(true);
   });

@@ -11,33 +11,33 @@ beforeEach(async () => {
   await prisma.instanceSetup.update({ where: { id: "singleton" }, data: { seededAt: null } });
 });
 
-describe("semilla", () => {
-  it("crea las doce categorías con sus ids de fábrica", async () => {
+describe("seed", () => {
+  it("creates the twelve categories with their factory ids", async () => {
     await runSeed();
     const ids = (await prisma.groceryCategory.findMany({ select: { id: true } })).map((c) => c.id);
     expect(ids).toHaveLength(12);
     expect(ids.every((id) => id.startsWith("gcat-"))).toBe(true);
   });
 
-  it("no crea ninguna tienda: eso es de cada casa", async () => {
+  it("creates no store: that belongs to each household", async () => {
     await runSeed();
     expect(await prisma.groceryStore.count()).toBe(0);
   });
 
-  it("es idempotente", async () => {
+  it("is idempotent", async () => {
     await runSeed();
     await runSeed();
     expect(await prisma.groceryCategory.count()).toBe(12);
   });
 
-  it("no resucita una categoría borrada: el guard ya está puesto", async () => {
+  it("does not resurrect a deleted category: the guard is already set", async () => {
     await runSeed();
     await prisma.groceryCategory.delete({ where: { id: "gcat-mascotas" } });
     await runSeed();
     expect(await prisma.groceryCategory.findUnique({ where: { id: "gcat-mascotas" } })).toBeNull();
   });
 
-  it("no pisa un renombrado ni le devuelve la clave de traducción", async () => {
+  it("does not overwrite a rename nor hand back its translation key", async () => {
     await runSeed();
     await prisma.groceryCategory.update({
       where: { id: "gcat-hogar" }, data: { name: "Trastos", nameKey: null },
@@ -48,54 +48,54 @@ describe("semilla", () => {
     expect(row?.nameKey).toBeNull();
   });
 
-  it("marca el guard, que es lo único que la detiene", async () => {
+  it("marks the guard, which is the only thing that stops it", async () => {
     await runSeed();
     const setup = await prisma.instanceSetup.findUnique({ where: { id: "singleton" } });
     expect(setup?.seededAt).not.toBeNull();
   });
 
-  it("distingue «ya sembrada» de «sin fila donde anotarlo»", async () => {
-    const fila = await prisma.instanceSetup.findUniqueOrThrow({ where: { id: "singleton" } });
+  it("tells apart 'already seeded' from 'no row to write it down in'", async () => {
+    const guardRow = await prisma.instanceSetup.findUniqueOrThrow({ where: { id: "singleton" } });
     try {
       await prisma.instanceSetup.delete({ where: { id: "singleton" } });
-      const resultado = await runSeed();
-      expect(resultado.status).toBe("no-guard-row");
+      const result = await runSeed();
+      expect(result.status).toBe("no-guard-row");
       expect(await prisma.groceryCategory.count()).toBe(0);
     } finally {
-      await prisma.instanceSetup.create({ data: fila });
+      await prisma.instanceSetup.create({ data: guardRow });
     }
     expect((await runSeed()).status).toBe("seeded");
     expect((await runSeed()).status).toBe("already-seeded");
   });
 
-  it("siembra el diccionario entero, con su clave de traducción por categoría", async () => {
+  it("seeds the whole dictionary, with a translation key per category", async () => {
     await runSeed();
     expect(await prisma.itemCategoryHint.count()).toBe(FACTORY_HINTS.length);
     const categories = await prisma.groceryCategory.findMany({ select: { id: true, nameKey: true } });
     expect(categories.every((c) => c.nameKey === c.id)).toBe(true);
-    const leche = await prisma.itemCategoryHint.findUnique({ where: { normalizedName: "leche" } });
-    const milk = await prisma.itemCategoryHint.findUnique({ where: { normalizedName: "milk" } });
-    expect(leche?.categoryId).toBe("gcat-lacteos");
-    expect(milk?.categoryId).toBe("gcat-lacteos");
+    const esMilk = await prisma.itemCategoryHint.findUnique({ where: { normalizedName: "leche" } });
+    const enMilk = await prisma.itemCategoryHint.findUnique({ where: { normalizedName: "milk" } });
+    expect(esMilk?.categoryId).toBe("gcat-lacteos");
+    expect(enMilk?.categoryId).toBe("gcat-lacteos");
   });
 
   // Everything above this line is protected by the guard, so it never exercises
   // the insert path twice. Clearing the marker is the only way to see what the
   // ON CONFLICT clauses actually do, and it is also the documented consequence
   // of clearing it: a category deleted before the second run comes back.
-  describe("con el guard borrado a mano", () => {
+  describe("with the guard cleared by hand", () => {
     beforeEach(async () => {
       await runSeed();
       await prisma.instanceSetup.update({ where: { id: "singleton" }, data: { seededAt: null } });
     });
 
-    it("no duplica ni categorías ni entradas del diccionario", async () => {
+    it("duplicates neither categories nor dictionary entries", async () => {
       await runSeed();
       expect(await prisma.groceryCategory.count()).toBe(12);
       expect(await prisma.itemCategoryHint.count()).toBe(FACTORY_HINTS.length);
     });
 
-    it("respeta el nombre, el icono y el orden que la casa haya cambiado", async () => {
+    it("respects the name, the icon and the order the household has changed", async () => {
       await prisma.groceryCategory.update({
         where: { id: "gcat-hogar" },
         data: { name: "Trastos", nameKey: null, icon: "🧰", order: 99 },
@@ -105,7 +105,7 @@ describe("semilla", () => {
       expect(row).toMatchObject({ name: "Trastos", nameKey: null, icon: "🧰", order: 99 });
     });
 
-    it("respeta lo que la casa haya aprendido sobre una palabra", async () => {
+    it("respects what the household has learned about a word", async () => {
       await prisma.itemCategoryHint.update({
         where: { normalizedName: "leche" },
         data: { categoryId: "gcat-bebidas", origin: "LEARNED" },
@@ -121,34 +121,34 @@ describe("semilla", () => {
     // ON CONFLICT skips the row and the factory id stays missing. The words
     // that filed things under it have to stay out too, or the foreign key
     // takes the whole seed — and with it the boot — down.
-    it("no cae cuando la casa se quedó con el nombre de una categoría de fábrica", async () => {
+    it("does not fall over when the household took the name of a factory category", async () => {
       await prisma.groceryCategory.delete({ where: { id: "gcat-mascotas" } });
       await prisma.groceryCategory.create({ data: { name: "Mascotas", icon: "🐶", order: 30 } });
-      const supervivientes = await prisma.itemCategoryHint.count();
+      const survivors = await prisma.itemCategoryHint.count();
       await runSeed();
       expect(await prisma.groceryCategory.findUnique({ where: { id: "gcat-mascotas" } })).toBeNull();
-      expect(await prisma.itemCategoryHint.count()).toBe(supervivientes);
+      expect(await prisma.itemCategoryHint.count()).toBe(survivors);
     });
   });
 });
 
-describe("diccionario de fábrica", () => {
-  it("apunta siempre a una categoría que existe", () => {
+describe("factory dictionary", () => {
+  it("always points at a category that exists", () => {
     const ids = new Set(FACTORY_CATEGORIES.map((c) => c.id));
     for (const hint of FACTORY_HINTS) expect(ids.has(hint.categoryId)).toBe(true);
   });
 
-  it("no tiene entradas repetidas dentro de un mismo idioma", () => {
+  it("has no repeated entries within the same language", () => {
     for (const list of [FACTORY_HINTS_ES, FACTORY_HINTS_EN]) {
       expect(new Set(list.map((h) => h.normalizedName)).size).toBe(list.length);
     }
   });
 
-  it("no manda la misma palabra a dos categorías distintas en cada idioma", () => {
+  it("does not send the same word to two different categories in the two languages", () => {
     const es = new Map(FACTORY_HINTS_ES.map((h) => [h.normalizedName, h.categoryId]));
     for (const hint of FACTORY_HINTS_EN) {
-      const enEspanol = es.get(hint.normalizedName);
-      if (enEspanol !== undefined) expect(enEspanol).toBe(hint.categoryId);
+      const spanish = es.get(hint.normalizedName);
+      if (spanish !== undefined) expect(spanish).toBe(hint.categoryId);
     }
   });
 
@@ -158,18 +158,18 @@ describe("diccionario de fábrica", () => {
   // "barra de pan" — which normalizes to "pan" and is answered by the "pan"
   // hint — looked reachable for a whole review round.
   const rows = FACTORY_HINTS.map((h) => ({ ...h, storeHintId: null }));
-  const contesta = (escrito: string) =>
-    findGroceryHint(normalizeGroceryText(escrito), rows)?.normalizedName ?? null;
+  const answerFor = (typed: string) =>
+    findGroceryHint(normalizeGroceryText(typed), rows)?.normalizedName ?? null;
 
-  it("cada entrada contesta a su propia palabra, salvo la que otra tapa", () => {
-    const tapadas = FACTORY_HINTS.filter((h) => contesta(h.normalizedName) !== h.normalizedName).map(
-      (h) => `${h.normalizedName} -> ${contesta(h.normalizedName)}`,
+  it("every entry answers its own word, except the one another entry covers", () => {
+    const shadowed = FACTORY_HINTS.filter((h) => answerFor(h.normalizedName) !== h.normalizedName).map(
+      (h) => `${h.normalizedName} -> ${answerFor(h.normalizedName)}`,
     );
     // Exactly one, and it is deliberate: "barra de pan" comes from the curated
     // export and stays byte-for-byte as the household had it. It costs nothing
     // — "pan" answers with the same category — but it is dead weight, and this
     // list is what stops the next one from arriving unnoticed.
-    expect(tapadas).toEqual(["barra de pan -> pan"]);
+    expect(shadowed).toEqual(["barra de pan -> pan"]);
   });
 
   // Re-normalizing the stored key is not a test of anything: it is the form the
@@ -221,7 +221,7 @@ describe("diccionario de fábrica", () => {
     ["una lata de atun", "atun"],
     ["leche entera", "leche"],
     ["papel higienico", "papel higienico"],
-  ])("escribir «%s» lo contesta la entrada «%s»", (escrito, entrada) => {
-    expect(contesta(escrito)).toBe(entrada);
+  ])("typing '%s' is answered by the '%s' entry", (typed, entry) => {
+    expect(answerFor(typed)).toBe(entry);
   });
 });

@@ -7,7 +7,7 @@ import { EntityManager } from "@/components/ajustes/entity-manager";
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from "@/hooks/use-categories";
 import { useCategoryName } from "@/hooks/use-category-name";
 
-export default function CategoriasPage() {
+export default function CategoriesPage() {
   const t = useTranslations("settings.categories");
   const categoryName = useCategoryName();
   const { data: categories = [] } = useCategories();

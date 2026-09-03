@@ -5,15 +5,15 @@ import { categoryDisplayName } from "./category-name.ts";
 const t = (key: string) => ({ "gcat-hogar": "Home" })[key] ?? key;
 
 describe("categoryDisplayName", () => {
-  it("traduce una categoría de fábrica", () => {
+  it("translates a factory category", () => {
     expect(categoryDisplayName({ nameKey: "gcat-hogar", name: "Hogar" }, t)).toBe("Home");
   });
 
-  it("respeta el nombre guardado cuando alguien la renombró", () => {
+  it("respects the stored name when someone has renamed it", () => {
     expect(categoryDisplayName({ nameKey: null, name: "Trastos" }, t)).toBe("Trastos");
   });
 
-  it("respeta el nombre de una categoría creada por la casa", () => {
+  it("respects the name of a category created by the household", () => {
     expect(categoryDisplayName({ nameKey: null, name: "Bebés" }, t)).toBe("Bebés");
   });
 });

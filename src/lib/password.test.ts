@@ -11,40 +11,40 @@ import {
 } from "./password.ts";
 
 describe("hashPassword", () => {
-  it("produce el formato versionado con algoritmo y parámetros", async () => {
+  it("produces the versioned format with algorithm and parameters", async () => {
     const stored = await hashPassword("una contraseña larga");
     expect(stored.startsWith("scrypt$N=65536,r=8,p=1$")).toBe(true);
     expect(stored.split("$")).toHaveLength(4);
   });
 
-  it("no repite la sal, así que dos hashes de lo mismo difieren", async () => {
+  it("does not reuse the salt, so two hashes of the same thing differ", async () => {
     const a = await hashPassword("una contraseña larga");
     const b = await hashPassword("una contraseña larga");
     expect(a).not.toBe(b);
   });
 
-  it("nunca guarda la contraseña en claro", async () => {
+  it("never stores the password in the clear", async () => {
     const stored = await hashPassword("una contraseña larga");
     expect(stored).not.toContain("una contraseña larga");
   });
 
-  it("rechaza contraseñas por debajo del mínimo", async () => {
+  it("rejects passwords below the minimum length", async () => {
     await expect(hashPassword("corta")).rejects.toThrow(new RegExp(String(MIN_PASSWORD_LENGTH)));
   });
 });
 
 describe("verifyPassword", () => {
-  it("acepta la correcta", async () => {
+  it("accepts the correct one", async () => {
     const stored = await hashPassword("una contraseña larga");
     expect(await verifyPassword("una contraseña larga", stored)).toBe(true);
   });
 
-  it("rechaza la equivocada", async () => {
+  it("rejects the wrong one", async () => {
     const stored = await hashPassword("una contraseña larga");
     expect(await verifyPassword("otra contraseña larga", stored)).toBe(false);
   });
 
-  it("no acepta un hash cuyo campo de parámetros ha sido manipulado", async () => {
+  it("does not accept a hash whose parameter field has been tampered with", async () => {
     // The stored key was derived at N=65536; re-deriving at N=16384 yields a
     // different key, so this must be false. It proves the verifier does not
     // ignore the parameter field — but not, on its own, that it reads it.
@@ -53,7 +53,7 @@ describe("verifyPassword", () => {
     expect(await verifyPassword("una contraseña larga", weaker)).toBe(false);
   });
 
-  it("verifica un hash derivado de verdad con parámetros más flojos", async () => {
+  it("verifies a hash genuinely derived with weaker parameters", async () => {
     // The forward-compatibility property, and the one that matters: the day the
     // parameters are raised, every existing password must keep working. A
     // verifier "simplified" into comparing the parameter string against today's
@@ -72,7 +72,7 @@ describe("verifyPassword", () => {
     expect(await verifyPassword("una contraseña larga", legacy)).toBe(true);
   });
 
-  it("rechaza parámetros fuera del sobre admitido en vez de derivar durante horas", async () => {
+  it("rejects parameters outside the accepted envelope instead of deriving for hours", async () => {
     const stored = await hashPassword("una contraseña larga");
     const absurd = stored.replace("N=65536,r=8,p=1", "N=32768,r=1,p=1015000");
     const started = Date.now();
@@ -80,18 +80,18 @@ describe("verifyPassword", () => {
     expect(Date.now() - started).toBeLessThan(1000);
   });
 
-  it("devuelve false ante un hash nulo, que es lo que tiene un usuario con sólo passkey", async () => {
+  it("returns false for a null hash, which is what a passkey-only user has", async () => {
     expect(await verifyPassword("una contraseña larga", null as unknown as string)).toBe(false);
   });
 
-  it("devuelve false ante un hash corrupto en vez de reventar", async () => {
+  it("returns false for a corrupt hash instead of blowing up", async () => {
     expect(await verifyPassword("una contraseña larga", "basura")).toBe(false);
     expect(await verifyPassword("una contraseña larga", "scrypt$N=x$y$z")).toBe(false);
   });
 });
 
 describe("burnDummyHash", () => {
-  it("deriva de verdad, que es lo único que iguala el coste de una cuenta inexistente", async () => {
+  it("really derives, the only thing that matches the cost of a non-existent account", async () => {
     // Asserting that it resolves to undefined is satisfied by an empty function,
     // and an empty function here is exactly the regression that reopens email
     // enumeration in the login. The counter is what makes the test falsifiable;

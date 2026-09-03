@@ -10,11 +10,11 @@ import { getClient } from "./lib/db.mjs";
 
 const ETX = String.fromCharCode(3); // Ctrl-C
 const EOT = String.fromCharCode(4); // Ctrl-D
-const ESC = String.fromCharCode(27); // Inicio de las teclas de flecha
+const ESC = String.fromCharCode(27); // Start of the arrow keys
 const DEL = String.fromCharCode(127); // Backspace
 
-const CORREO = "rescate-tarea14@example.com";
-const LARGA = "una contraseña larga";
+const EMAIL = "rescate-tarea14@example.com";
+const LONG_PASSWORD = "una contraseña larga";
 
 let client: Client;
 
@@ -38,17 +38,17 @@ afterEach(async () => {
   });
 });
 
-async function crearUsuario(email = CORREO, passwordHash: string | null = null) {
+async function createUser(email = EMAIL, passwordHash: string | null = null) {
   return prisma.user.create({ data: { email, passwordHash, tokenVersion: 3 } });
 }
 
-describe("normalizeEmail del rescate", () => {
+describe("rescue normalizeEmail", () => {
   // The script cannot import src/lib/email.ts — `src/lib` is not in the runner
   // image — so the rule exists twice. This is what stops the copies drifting:
   // if one of them starts stripping dots or handling +tags, the rescue and the
   // login would look up different rows and only one of them would say so.
-  it("contesta exactamente lo mismo que el de la aplicación", () => {
-    const casos = [
+  it("answers exactly the same as the application's", () => {
+    const samples = [
       "ana@example.com",
       "Ana@Example.COM",
       "  ana@example.com  ",
@@ -59,21 +59,21 @@ describe("normalizeEmail del rescate", () => {
       "sin-arroba",
       "MAYÚSCULAS@example.com",
     ];
-    for (const caso of casos) {
-      expect(normalizeEmail(caso)).toBe(normalizeEmailApp(caso));
+    for (const sample of samples) {
+      expect(normalizeEmail(sample)).toBe(normalizeEmailApp(sample));
     }
   });
 });
 
 describe("readLineFrom", () => {
-  it("espera mientras no haya llegado el salto de línea", () => {
+  it("waits while the newline has not arrived", () => {
     expect(readLineFrom("medio")).toEqual({ status: "incomplete", value: "medio", rest: "" });
   });
 
-  it("corta en el salto de línea y devuelve el resto", () => {
-    // La regresión que costó una ejecución entera: pegar la contraseña y su
-    // repetición manda las dos en un solo trozo. Tirar lo que va detrás del
-    // salto dejaba al segundo aviso sin nada que leer.
+  it("cuts at the newline and returns the rest", () => {
+    // The regression that cost a whole run: pasting the password and its repeat
+    // sends both of them in a single chunk. Throwing away what comes after the
+    // newline left the second prompt with nothing to read.
     expect(readLineFrom("clave\nrepetida\n")).toEqual({
       status: "line",
       value: "clave",
@@ -81,7 +81,7 @@ describe("readLineFrom", () => {
     });
   });
 
-  it("trata CRLF como un único final de línea, no como una línea vacía detrás", () => {
+  it("treats CRLF as a single line ending, not as an empty line behind it", () => {
     expect(readLineFrom("clave\r\notra")).toEqual({
       status: "line",
       value: "clave",
@@ -89,61 +89,61 @@ describe("readLineFrom", () => {
     });
   });
 
-  it("aplica el borrado", () => {
+  it("applies the deletion", () => {
     expect(readLineFrom(`clavv${DEL}e\n`).value).toBe("clave");
     expect(readLineFrom(`${DEL}${DEL}clave\n`).value).toBe("clave");
   });
 
-  it("no deja que una tecla de flecha entre en la contraseña", () => {
-    // Tirar sólo el ESC —lo que hace una regla de «ignora los caracteres de
-    // control»— dejaría «[C» dentro de la contraseña, invisible para quien la
-    // teclea y fatal para quien intente entrar con ella después.
+  it("does not let an arrow key get into the password", () => {
+    // Dropping only the ESC — what an "ignore the control characters" rule
+    // does — would leave "[C" inside the password, invisible to whoever types
+    // it and fatal for whoever tries to log in with it later.
     expect(readLineFrom(`cla${ESC}[Cve\n`).value).toBe("clave");
     expect(readLineFrom(`cla${ESC}[1;5Dve\n`).value).toBe("clave");
     expect(readLineFrom(`cla${ESC}OPve\n`).value).toBe("clave");
   });
 
-  it("un ESC suelto no se come el carácter siguiente", () => {
+  it("a lone ESC does not eat the next character", () => {
     expect(readLineFrom(`cla${ESC}ve\n`).value).toBe("clave");
   });
 
-  it("cancela con Ctrl-C y con Ctrl-D en vez de dar por buena la parte tecleada", () => {
+  it("cancels on Ctrl-C and on Ctrl-D instead of accepting the part already typed", () => {
     expect(readLineFrom(`media${ETX}`)).toEqual({ status: "cancelled", value: "", rest: "" });
     expect(readLineFrom(`media${EOT}`)).toEqual({ status: "cancelled", value: "", rest: "" });
   });
 
-  it("cuenta los acentos como un carácter y no como sus dos bytes", () => {
+  it("counts an accent as one character and not as its two bytes", () => {
     expect(readLineFrom("contraseña\n").value).toBe("contraseña");
     expect(readLineFrom(`contraseña${DEL}\n`).value).toBe("contraseñ");
   });
 
-  it("borra el emoji entero y no media pareja suplente", () => {
-    // Un slice a secas partiría el par y dejaría dentro de la contraseña un
-    // suplente huérfano que nadie podría volver a teclear.
+  it("deletes the whole emoji and not half a surrogate pair", () => {
+    // A plain slice would split the pair and leave an orphan surrogate inside
+    // the password that nobody could ever type again.
     expect(readLineFrom(`clave🔑${DEL}\n`).value).toBe("clave");
     expect(readLineFrom("clave🔑\n").value).toBe("clave🔑");
   });
 });
 
 describe("findAccount", () => {
-  it("encuentra la cuenta y dice si ya tenía contraseña", async () => {
-    await crearUsuario(CORREO, "scrypt$N=65536,r=8,p=1$c2FsdA==$a2V5");
-    const cuenta = await findAccount(client, CORREO);
-    expect(cuenta?.email).toBe(CORREO);
-    expect(cuenta?.hasPassword).toBe(true);
-    expect(cuenta?.passkeys).toBe(0);
+  it("finds the account and says whether it already had a password", async () => {
+    await createUser(EMAIL, "scrypt$N=65536,r=8,p=1$c2FsdA==$a2V5");
+    const account = await findAccount(client, EMAIL);
+    expect(account?.email).toBe(EMAIL);
+    expect(account?.hasPassword).toBe(true);
+    expect(account?.passkeys).toBe(0);
   });
 
-  it("distingue la cuenta sin contraseña, que es la que el rescate existe para salvar", async () => {
-    await crearUsuario();
-    expect((await findAccount(client, CORREO))?.hasPassword).toBe(false);
+  it("tells apart the account with no password, which is the one the rescue exists to save", async () => {
+    await createUser();
+    expect((await findAccount(client, EMAIL))?.hasPassword).toBe(false);
   });
 
-  it("cuenta las passkeys, que el rescate no toca", async () => {
-    const usuario = await crearUsuario();
+  it("counts the passkeys, which the rescue does not touch", async () => {
+    const user = await createUser();
     await prisma.webAuthnCredential.create({
       data: {
-        userId: usuario.id,
+        userId: user.id,
         credentialId: "cred-rescate-tarea14",
         publicKey: "clave",
         counter: 0n,
@@ -151,113 +151,115 @@ describe("findAccount", () => {
         deviceName: "Móvil",
       },
     });
-    expect((await findAccount(client, CORREO))?.passkeys).toBe(1);
+    expect((await findAccount(client, EMAIL))?.passkeys).toBe(1);
   });
 
-  it("devuelve null cuando esa dirección no existe", async () => {
+  it("returns null when that address does not exist", async () => {
     expect(await findAccount(client, "rescate-tarea14-nadie@example.com")).toBeNull();
   });
 });
 
 describe("resetPassword", () => {
-  it("escribe un hash que verifica la contraseña tecleada", async () => {
-    await crearUsuario();
-    await resetPassword(client, CORREO, LARGA);
-    const fila = await prisma.user.findUniqueOrThrow({ where: { email: CORREO } });
-    expect(fila.passwordHash).not.toBeNull();
-    expect(fila.passwordHash).not.toContain(LARGA);
-    expect(await verifyPassword(LARGA, fila.passwordHash as string)).toBe(true);
+  it("writes a hash that verifies the password just typed", async () => {
+    await createUser();
+    await resetPassword(client, EMAIL, LONG_PASSWORD);
+    const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    expect(row.passwordHash).not.toBeNull();
+    expect(row.passwordHash).not.toContain(LONG_PASSWORD);
+    expect(await verifyPassword(LONG_PASSWORD, row.passwordHash as string)).toBe(true);
   });
 
-  it("sube token_version en la misma sentencia: sin eso el anterior sigue dentro", async () => {
-    await crearUsuario();
-    const resultado = await resetPassword(client, CORREO, LARGA);
-    expect(resultado?.tokenVersion).toBe(4);
-    const fila = await prisma.user.findUniqueOrThrow({ where: { email: CORREO } });
-    expect(fila.tokenVersion).toBe(4);
+  it("bumps token_version in the same statement: without that the previous holder stays in", async () => {
+    await createUser();
+    const result = await resetPassword(client, EMAIL, LONG_PASSWORD);
+    expect(result?.tokenVersion).toBe(4);
+    const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    expect(row.tokenVersion).toBe(4);
   });
 
-  it("normaliza la dirección, así que la mayúscula que escribe su dueña vale", async () => {
-    await crearUsuario();
-    const resultado = await resetPassword(client, "  RESCATE-Tarea14@Example.COM  ", LARGA);
-    expect(resultado?.email).toBe(CORREO);
+  it("normalizes the address, so the uppercase its owner types still works", async () => {
+    await createUser();
+    const result = await resetPassword(client, "  RESCATE-Tarea14@Example.COM  ", LONG_PASSWORD);
+    expect(result?.email).toBe(EMAIL);
   });
 
-  it("rescata de verdad una fila guardada sin normalizar", async () => {
-    // Encontrar la fila no basta y es peor que no encontrarla, porque se informa
-    // de un éxito que no lo es: el login busca por igualdad exacta
-    // (src/lib/auth-password.ts), así que escribir el hash sobre
-    // `Rescate-Tarea14-Legado@Example.com` y dejar la grafía como estaba deja
-    // una cuenta con contraseña nueva en la que no puede entrar nadie. Por eso
-    // la prueba entra de verdad en vez de mirar la fila.
-    await crearUsuario("Rescate-Tarea14-Legado@Example.com");
-    const resultado = await resetPassword(client, "Rescate-Tarea14-Legado@Example.com", LARGA);
-    expect(resultado?.email).toBe("rescate-tarea14-legado@example.com");
+  it("really does rescue a row stored unnormalized", async () => {
+    // Finding the row is not enough, and it is worse than not finding it,
+    // because a success that is not one gets reported: the login looks up by
+    // exact equality (src/lib/auth-password.ts), so writing the hash onto
+    // `Rescate-Tarea14-Legado@Example.com` and leaving the spelling as it was
+    // leaves an account with a new password that nobody can get into. That is
+    // why this test really logs in instead of looking at the row.
+    await createUser("Rescate-Tarea14-Legado@Example.com");
+    const result = await resetPassword(client, "Rescate-Tarea14-Legado@Example.com", LONG_PASSWORD);
+    expect(result?.email).toBe("rescate-tarea14-legado@example.com");
 
-    const entrada = await authorizePassword("rescate-tarea14-legado@example.com", LARGA);
-    expect(entrada.ok).toBe(true);
+    const signIn = await authorizePassword("rescate-tarea14-legado@example.com", LONG_PASSWORD);
+    expect(signIn.ok).toBe(true);
   });
 
-  it("normalizar la grafía no cambia nada para una fila que ya lo estaba", async () => {
-    await crearUsuario();
-    await resetPassword(client, CORREO, LARGA);
-    const fila = await prisma.user.findUniqueOrThrow({ where: { email: CORREO } });
-    expect(fila.email).toBe(CORREO);
-    expect((await authorizePassword(CORREO, LARGA)).ok).toBe(true);
+  it("normalizing the spelling changes nothing for a row that already was", async () => {
+    await createUser();
+    await resetPassword(client, EMAIL, LONG_PASSWORD);
+    const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    expect(row.email).toBe(EMAIL);
+    expect((await authorizePassword(EMAIL, LONG_PASSWORD)).ok).toBe(true);
   });
 
-  it("devuelve null si no hay ninguna fila, en vez de decir que ha ido bien", async () => {
-    expect(await resetPassword(client, "rescate-tarea14-nadie@example.com", LARGA)).toBeNull();
+  it("returns null when there is no row, instead of saying it went fine", async () => {
+    expect(await resetPassword(client, "rescate-tarea14-nadie@example.com", LONG_PASSWORD)).toBeNull();
   });
 
-  it("deja rastro durable en security_logs, que es lo único que queda del rescate", async () => {
-    // Sin esta fila, todo el registro de que alguien reescribió una credencial
-    // sin sesión y sin autenticarse es la salida de error de una terminal.
-    const usuario = await crearUsuario();
-    const resultado = await resetPassword(client, CORREO, LARGA);
-    expect(resultado?.audited).toBe(true);
+  it("leaves a durable trace in security_logs, which is all that is left of the rescue", async () => {
+    // Without this row, the entire record of somebody rewriting a credential
+    // with no session and without authenticating is the error output of a
+    // terminal.
+    const user = await createUser();
+    const result = await resetPassword(client, EMAIL, LONG_PASSWORD);
+    expect(result?.audited).toBe(true);
 
-    const evento = await prisma.securityLog.findFirstOrThrow({ where: { userId: usuario.id } });
-    expect(evento.eventType).toBe("PASSWORD_RESET");
-    expect(evento.severity).toBe("WARNING");
-    expect(evento.email).toBe(CORREO);
-    expect(evento.endpoint).toBe("scripts/auth-password.mjs");
-    expect(evento.success).toBe(true);
+    const event = await prisma.securityLog.findFirstOrThrow({ where: { userId: user.id } });
+    expect(event.eventType).toBe("PASSWORD_RESET");
+    expect(event.severity).toBe("WARNING");
+    expect(event.email).toBe(EMAIL);
+    expect(event.endpoint).toBe("scripts/auth-password.mjs");
+    expect(event.success).toBe(true);
   });
 
-  it("no mete la contraseña ni el hash en el rastro", async () => {
-    await crearUsuario();
-    await resetPassword(client, CORREO, LARGA);
-    const evento = await prisma.securityLog.findFirstOrThrow({ where: { email: CORREO } });
-    const fila = await prisma.user.findUniqueOrThrow({ where: { email: CORREO } });
-    const entero = JSON.stringify(evento);
-    expect(entero).not.toContain(LARGA);
-    expect(entero).not.toContain(fila.passwordHash as string);
+  it("puts neither the password nor the hash into the trace", async () => {
+    await createUser();
+    await resetPassword(client, EMAIL, LONG_PASSWORD);
+    const event = await prisma.securityLog.findFirstOrThrow({ where: { email: EMAIL } });
+    const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    const serialized = JSON.stringify(event);
+    expect(serialized).not.toContain(LONG_PASSWORD);
+    expect(serialized).not.toContain(row.passwordHash as string);
   });
 
-  it("un rastro que no se puede escribir no deshace el rescate", async () => {
-    // Al revés sería peor de lo que arregla: un enum roto o un disco lleno
-    // convertirían «no puedes entrar» en «no puedes entrar y tampoco arreglarlo».
-    await crearUsuario();
+  it("a trace that cannot be written does not undo the rescue", async () => {
+    // The other way round would be worse than what it fixes: a broken enum or a
+    // full disk would turn "you cannot get in" into "you cannot get in and you
+    // cannot fix it either".
+    await createUser();
     await client.query('ALTER TABLE security_logs RENAME TO "security_logs_tarea14"');
     try {
-      const resultado = await resetPassword(client, CORREO, LARGA);
-      expect(resultado?.audited).toBe(false);
-      expect(resultado?.tokenVersion).toBe(4);
-      const fila = await prisma.user.findUniqueOrThrow({ where: { email: CORREO } });
-      expect(await verifyPassword(LARGA, fila.passwordHash as string)).toBe(true);
+      const result = await resetPassword(client, EMAIL, LONG_PASSWORD);
+      expect(result?.audited).toBe(false);
+      expect(result?.tokenVersion).toBe(4);
+      const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+      expect(await verifyPassword(LONG_PASSWORD, row.passwordHash as string)).toBe(true);
     } finally {
       await client.query('ALTER TABLE "security_logs_tarea14" RENAME TO security_logs');
     }
   });
 
-  it("rechaza por debajo del mínimo sin tocar la fila", async () => {
-    await crearUsuario();
-    await expect(resetPassword(client, CORREO, "corta")).rejects.toThrow(
+  it("rejects anything below the minimum without touching the row", async () => {
+    await createUser();
+    await expect(resetPassword(client, EMAIL, "corta")).rejects.toThrow(
       new RegExp(String(MIN_PASSWORD_LENGTH)),
     );
-    const fila = await prisma.user.findUniqueOrThrow({ where: { email: CORREO } });
-    expect(fila.passwordHash).toBeNull();
-    expect(fila.tokenVersion).toBe(3);
+    const row = await prisma.user.findUniqueOrThrow({ where: { email: EMAIL } });
+    expect(row.passwordHash).toBeNull();
+    expect(row.tokenVersion).toBe(3);
   });
 });

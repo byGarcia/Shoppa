@@ -18,7 +18,7 @@ const CARDS = [
   { href: "/ajustes/telegram", emoji: "📉", key: "telegram", tint: "#4a9ecb" },
 ] as const;
 
-export default function AjustesPage() {
+export default function SettingsPage() {
   const t = useTranslations("settings");
   const tLinks = useTranslations("settings.links");
   const tCommon = useTranslations("common");

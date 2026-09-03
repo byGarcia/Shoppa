@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ajustes/page-header";
 import { EntityManager } from "@/components/ajustes/entity-manager";
 import { useStores, useCreateStore, useUpdateStore, useDeleteStore } from "@/hooks/use-stores";
 
-export default function SupersPage() {
+export default function StoresPage() {
   const t = useTranslations("settings.stores");
   const { data: stores = [] } = useStores();
   const create = useCreateStore();

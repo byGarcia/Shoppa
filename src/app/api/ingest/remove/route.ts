@@ -6,10 +6,10 @@ import { normalizeGroceryText, tokenMatches } from "@/lib/grocery-match";
 import { prisma } from "@/server/db";
 
 /**
- * POST /api/ingest/remove — Siri Shortcut "Quitar de la compra".
+ * POST /api/ingest/remove — the "remove from the shopping list" Siri Shortcut.
  * Marks as CHECKED (recoverable, never deletes) the most recent unchecked item matching by normalizedName across
  * ALL stores + inbox. Exact match first, then whole-name fuzzy fallback.
- * Explicit "No encontrado" on miss so a dictation variant is never silent.
+ * Explicit "not found" reply on a miss (`ingest.notFound`) so a dictation variant is never silent.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   // What the Shortcut shows; see the voice route for why there is no cookie.

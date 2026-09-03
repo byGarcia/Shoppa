@@ -1,19 +1,22 @@
-# Categorías de fábrica
+# Factory categories
 
-Las doce categorías con las que se siembra una instalación nueva, tal y como
-estaban en una instalación en producción el 2026-09-02, leídas con la consulta
-de solo lectura `SELECT id, name, icon, "order" FROM grocery_categories ORDER BY "order"`.
+The twelve categories a fresh installation is seeded with, exactly as they stood
+in a production installation on 2026-09-02, read with the read-only query
+`SELECT id, name, icon, "order" FROM grocery_categories ORDER BY "order"`.
 
-De ahí le viene la autoridad a este fichero: estas filas son un dato observado,
-no una lista que alguien redactara aquí. `prisma/seed-data.ts` y el relleno de
-`name_key` de la migración se contrastan contra él en `prisma/migration.test.ts`,
-porque los dos tienen que coincidir carácter a carácter con lo que una
-instalación existente ya guarda.
+That is where this file's authority comes from: these rows are an observation,
+not a list somebody drafted here. `prisma/seed-data.ts` and the migration's
+`name_key` back-fill are checked against it in `prisma/migration.test.ts`,
+because both have to match, character for character, what an existing
+installation already stores.
 
-Ninguna de las doce estaba renombrada, así que ahí el relleno de `name_key` las
-reclama todas. La condición `AND name = '<canónico>'` sigue haciendo falta por
-las demás instalaciones: donde alguien haya renombrado una categoría, esa se
-queda sin clave y conserva el nombre que su hogar eligió.
+None of the twelve had been renamed, so in that installation the `name_key`
+back-fill claims all of them. The `AND name = '<canonical>'` condition is still
+needed for every other installation: where somebody has renamed a category, that
+one is left without a key and keeps the name their household chose.
+
+The `name (es)` column below is product data, not prose — it is the Spanish half
+of a bilingual interface, and `prisma/migration.test.ts` parses these rows.
 
 | id | name (es) | icon | order |
 |---|---|---|---|
@@ -30,15 +33,15 @@ queda sin clave y conserva el nombre que su hogar eligió.
 | gcat-mascotas | Mascotas | 🐾 | 11 |
 | gcat-otros | Otros | 📦 | 12 |
 
-El icono de Congelados son dos puntos de código, no uno: ❄️ es U+2744 seguido del
-selector de variación U+FE0F.
+The Frozen icon is two code points, not one: ❄️ is U+2744 followed by the
+variation selector U+FE0F.
 
-Los nombres en inglés se escriben de cero, no se traducen palabra por palabra:
+The English names are written from scratch, not translated word by word:
 Fruit & veg / Meat & fish / Dairy / Bakery / Frozen / Drinks / Pantry / Cleaning /
 Personal care / Household / Pets / Other.
 
 ---
 
-*Este fichero es la referencia, no un resumen del código. Si discrepa de
-`prisma/seed-data.ts` o de la migración, quien se equivoca es el código: no se
-edita para que las pruebas pasen.*
+*This file is the reference, not a summary of the code. If it disagrees with
+`prisma/seed-data.ts` or with the migration, the code is what is wrong: this
+file is not edited to make the tests pass.*

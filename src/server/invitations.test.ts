@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Cuenta las derivaciones sin sustituirlas: el resto del fichero necesita que
-// scrypt siga siendo scrypt de verdad.
-const derivaciones = vi.hoisted(() => ({ n: 0 }));
+// Counts the derivations without replacing them: the rest of the file needs
+// scrypt to still be the real scrypt.
+const derivations = vi.hoisted(() => ({ n: 0 }));
 vi.mock("@/lib/password", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/password")>();
   return {
     ...real,
-    hashPassword: async (plano: string) => {
-      derivaciones.n += 1;
-      return real.hashPassword(plano);
+    hashPassword: async (plain: string) => {
+      derivations.n += 1;
+      return real.hashPassword(plain);
     },
   };
 });
@@ -31,25 +31,26 @@ beforeEach(async () => {
   await prisma.invitation.deleteMany();
   await prisma.user.deleteMany();
   inviterId = (await prisma.user.create({ data: { email: "ana@example.com" } })).id;
-  derivaciones.n = 0;
+  derivations.n = 0;
 });
 
-/** Los usuarios que hay además de quien invita. */
-async function usuariosNuevos(): Promise<number> {
+/** The users there are besides the inviter. */
+async function newUsers(): Promise<number> {
   return (await prisma.user.count()) - 1;
 }
 
-describe("invitaciones", () => {
-  it("guarda el hash y no el token", async () => {
+describe("invitations", () => {
+  it("stores the hash and not the token", async () => {
     const { token } = await createInvitation(inviterId);
     const stored = await prisma.invitation.findFirst();
     expect(stored?.tokenHash).not.toBe(token);
-    // Y el hash es el que se busca al canjear: guardar «algo distinto» no es
-    // guardar el hash. Sin esto, un digest de otra cosa pasaría igual.
+    // And the hash is the one looked up when redeeming: storing "something
+    // different" is not storing the hash. Without this, a digest of anything
+    // else would pass just the same.
     expect(stored?.tokenHash).toBe(hashInvitationToken(token));
   });
 
-  it("se canjea una vez y sólo una", async () => {
+  it("is redeemed once and only once", async () => {
     const { token } = await createInvitation(inviterId);
     const first = await redeemInvitation({
       token,
@@ -63,10 +64,10 @@ describe("invitaciones", () => {
       password: "otra contraseña larga",
     });
     expect(second).toEqual({ ok: false, reason: "used" });
-    expect(await usuariosNuevos()).toBe(1);
+    expect(await newUsers()).toBe(1);
   });
 
-  it("caducada no vale", async () => {
+  it("an expired one is no good", async () => {
     const { token } = await createInvitation(inviterId);
     await prisma.invitation.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
     expect(
@@ -78,18 +79,18 @@ describe("invitaciones", () => {
     ).toEqual({ ok: false, reason: "expired" });
   });
 
-  // La caducidad viaja DENTRO del UPDATE condicional, así que una invitación
-  // caducada no casa ninguna fila y no se marca usada. Si se comprobase antes y
-  // se marcase después, «caducada» pisaría a «usada» y el motivo que ve quien
-  // abre el enlace dependería del orden en que se mirasen las dos cosas.
-  it("una caducada no se gasta: sigue sin usar", async () => {
+  // Expiry travels INSIDE the conditional UPDATE, so an expired invitation
+  // matches no row and is not marked used. If it were checked before and marked
+  // after, "expired" would clobber "used" and the reason shown to whoever opens
+  // the link would depend on the order in which the two were looked at.
+  it("an expired one is not spent: it stays unused", async () => {
     const { token } = await createInvitation(inviterId);
     await prisma.invitation.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
     await redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" });
     expect((await prisma.invitation.findFirst())?.usedAt).toBeNull();
   });
 
-  it("un token inventado no crea usuario", async () => {
+  it("a made-up token creates no user", async () => {
     const before = await prisma.user.count();
     const result = await redeemInvitation({
       token: "inventado",
@@ -100,29 +101,30 @@ describe("invitaciones", () => {
     expect(await prisma.user.count()).toBe(before);
   });
 
-  // El reloj se toma a AMBOS lados de la llamada, no sólo antes. Con una sola
-  // muestra previa, el margen que tarda el insert se suma al plazo y la
-  // comparación con «72 exactas» salía 72.00000027777777: roja en la suite
-  // entera y verde en solitario. Ha interrumpido dos tareas que no tenían nada
-  // que ver con invitaciones.
+  // The clock is sampled on BOTH sides of the call, not just before. With a
+  // single sample taken beforehand, the time the insert takes adds onto the
+  // deadline and the comparison against "exactly 72" came out as
+  // 72.00000027777777: red in the whole suite and green on its own. It has
+  // interrupted two tasks that had nothing to do with invitations.
   //
-  // Encerrarlo entre las dos muestras no afloja lo que comprueba, lo aprieta:
-  // el plazo se emite en algún instante entre `antes` y `despues`, así que
-  // medido desde el tardío no puede pasar de 72 h y medido desde el temprano no
-  // puede quedarse corto. Las dos cotas a la vez fijan la constante — con 71 h
-  // falla la de abajo y con 73 h la de arriba— y ninguna depende de lo que se
-  // haya tardado. El 72 va escrito aquí a mano: comparar contra
-  // INVITATION_TTL_MS sería preguntarle a la constante por sí misma.
-  it("caduca a 72 horas", async () => {
-    const HORA = 3_600_000;
-    const antes = Date.now();
+  // Bracketing it between the two samples does not loosen what it checks, it
+  // tightens it: the deadline is issued at some instant between `before` and
+  // `after`, so measured from the later one it cannot exceed 72 h and
+  // measured from the earlier one it cannot fall short. The two bounds together
+  // pin the constant down — with 71 h the bottom one fails and with 73 h the
+  // top one — and neither depends on how long it took. The 72 is written out by
+  // hand here: comparing against INVITATION_TTL_MS would be asking the constant
+  // about itself.
+  it("expires at 72 hours", async () => {
+    const HOUR = 3_600_000;
+    const before = Date.now();
     const { expiresAt } = await createInvitation(inviterId);
-    const despues = Date.now();
-    expect(expiresAt.getTime() - despues).toBeLessThanOrEqual(72 * HORA);
-    expect(expiresAt.getTime() - antes).toBeGreaterThanOrEqual(72 * HORA);
+    const after = Date.now();
+    expect(expiresAt.getTime() - after).toBeLessThanOrEqual(72 * HOUR);
+    expect(expiresAt.getTime() - before).toBeGreaterThanOrEqual(72 * HOUR);
   });
 
-  it("guarda el correo en minúsculas y sin espacios", async () => {
+  it("stores the email lowercased and without whitespace", async () => {
     const { token } = await createInvitation(inviterId);
     const result = await redeemInvitation({
       token,
@@ -134,39 +136,39 @@ describe("invitaciones", () => {
     expect(user).not.toBeNull();
   });
 
-  it("sin contraseña ni credencial no crea nada y deja la invitación sin usar", async () => {
+  it("with neither password nor credential it creates nothing and leaves the invitation unused", async () => {
     const { token } = await createInvitation(inviterId);
     expect(await redeemInvitation({ token, email: "luis@example.com" })).toEqual({
       ok: false,
       reason: "invalid",
     });
-    expect(await usuariosNuevos()).toBe(0);
+    expect(await newUsers()).toBe(0);
     expect((await prisma.invitation.findFirst())?.usedAt).toBeNull();
   });
 
-  // El índice único sobre lower(email) salta DENTRO de la transacción, así que
-  // se lleva por delante el UPDATE: la invitación no se gasta en una cuenta que
-  // no ha llegado a existir y quien la tiene puede reintentar con la dirección
-  // que quería.
-  it("un correo ya registrado no gasta la invitación", async () => {
+  // The unique index on lower(email) fires INSIDE the transaction, so it takes
+  // the UPDATE down with it: the invitation is not spent on an account that
+  // never came to exist, and whoever holds it can retry with the address they
+  // wanted.
+  it("an already registered email does not spend the invitation", async () => {
     const { token } = await createInvitation(inviterId);
-    const choque = await redeemInvitation({
+    const clash = await redeemInvitation({
       token,
       email: "ANA@example.com",
       password: "una contraseña larga",
     });
-    expect(choque).toEqual({ ok: false, reason: "email-taken" });
+    expect(clash).toEqual({ ok: false, reason: "email-taken" });
     expect((await prisma.invitation.findFirst())?.usedAt).toBeNull();
 
-    const buena = await redeemInvitation({
+    const good = await redeemInvitation({
       token,
       email: "luis@example.com",
       password: "una contraseña larga",
     });
-    expect(buena.ok).toBe(true);
+    expect(good.ok).toBe(true);
   });
 
-  it("una invitación con credencial no guarda hash de contraseña", async () => {
+  it("an invitation redeemed with a credential stores no password hash", async () => {
     const { token } = await createInvitation(inviterId);
     const result = await redeemInvitation({
       token,
@@ -189,10 +191,11 @@ describe("invitaciones", () => {
     expect(await prisma.webAuthnCredential.count()).toBe(1);
   });
 
-  // La invitación es de la instancia, no de quien la mandó: si el enlace se
-  // rompiera al borrar a quien invita, la explicación tendría que estar en algún
-  // sitio. Está en el esquema —ON DELETE CASCADE— y dice lo contrario: se borra.
-  it("si se borra quien invitó, su invitación desaparece", async () => {
+  // The invitation belongs to the instance, not to whoever sent it: if the link
+  // broke when the inviter is deleted, the explanation would have to be
+  // somewhere. It is in the schema — ON DELETE CASCADE — and it says the
+  // opposite: it goes away.
+  it("if the inviter is deleted, their invitation disappears", async () => {
     const { token } = await createInvitation(inviterId);
     await prisma.user.delete({ where: { id: inviterId } });
     expect(await prisma.invitation.count()).toBe(0);
@@ -205,7 +208,7 @@ describe("invitaciones", () => {
     ).toEqual({ ok: false, reason: "unknown" });
   });
 
-  it("mirar una invitación no la gasta", async () => {
+  it("looking at an invitation does not spend it", async () => {
     const { token } = await createInvitation(inviterId);
     expect(await inspectInvitation(token)).toEqual({ ok: true });
     expect(await inspectInvitation(token)).toEqual({ ok: true });
@@ -221,155 +224,157 @@ describe("invitaciones", () => {
     expect(await inspectInvitation("inventado")).toEqual({ ok: false, reason: "unknown" });
   });
 
-  it("de dos canjes simultáneos sólo prospera uno", async () => {
+  it("of two simultaneous redemptions only one goes through", async () => {
     const { token } = await createInvitation(inviterId);
     const [a, b] = await Promise.all([
       redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" }),
       redeemInvitation({ token, email: "eva@example.com", password: "otra contraseña larga" }),
     ]);
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
-    expect(await usuariosNuevos()).toBe(1);
+    expect(await newUsers()).toBe(1);
   });
 
-  // El Promise.all de arriba NO discrimina: la revisión de la tarea 9 demostró
-  // que un «leer y luego escribir» lo pasa igual, porque las dos transacciones
-  // tienen que solaparse de verdad y la ventana es de un par de milisegundos —
-  // con el scrypt previo metiendo jitter encima. Ésta fuerza el solapamiento:
-  // mantiene la fila bloqueada en una transacción sin confirmar mientras llega
-  // el canje real. El UPDATE del canje se queda esperando el bloqueo y, al
-  // soltarse, casa cero filas. Un «leer y decidir» habría leído used_at NULL de
-  // la instantánea anterior al commit y habría creado la cuenta igualmente.
-  it("un canje que llega con la fila bloqueada por otra transacción no prospera", async () => {
+  // The Promise.all above does NOT discriminate: the task 9 review showed that
+  // a "read and then write" passes it just the same, because the two
+  // transactions have to genuinely overlap and the window is a couple of
+  // milliseconds — with the preceding scrypt piling jitter on top. This one
+  // forces the overlap: it keeps the row locked in an uncommitted transaction
+  // while the real redemption arrives. The redemption's UPDATE ends up waiting
+  // on the lock and, once it is released, matches zero rows. A "read and
+  // decide" would have read used_at NULL from the pre-commit snapshot and
+  // created the account anyway.
+  it("a redemption arriving with the row locked by another transaction does not go through", async () => {
     const { token } = await createInvitation(inviterId);
     const tokenHash = hashInvitationToken(token);
 
-    let liberar: () => void = () => {};
-    const bloqueada = new Promise<void>((resolve) => {
-      liberar = resolve;
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    let dentro: () => void = () => {};
-    const yaBloqueada = new Promise<void>((resolve) => {
-      dentro = resolve;
+    let entered: () => void = () => {};
+    const hasEntered = new Promise<void>((resolve) => {
+      entered = resolve;
     });
 
-    const retenedor = prisma.$transaction(async (tx) => {
+    const holder = prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         UPDATE invitations SET used_at = now()
         WHERE token_hash = ${tokenHash} AND used_at IS NULL`;
-      dentro();
-      await bloqueada;
+      entered();
+      await held;
     });
 
-    await yaBloqueada;
-    const tardio = redeemInvitation({
+    await hasEntered;
+    const late = redeemInvitation({
       token,
       email: "luis@example.com",
       password: "una contraseña larga",
     });
-    // Tiempo de sobra para que el UPDATE del tardío llegue al bloqueo.
+    // Plenty of time for the late one's UPDATE to reach the lock.
     await new Promise((resolve) => setTimeout(resolve, 200));
-    liberar();
-    await retenedor;
+    release();
+    await holder;
 
-    expect(await tardio).toEqual({ ok: false, reason: "used" });
-    expect(await usuariosNuevos()).toBe(0);
+    expect(await late).toEqual({ ok: false, reason: "used" });
+    expect(await newUsers()).toBe(0);
   });
 });
 
-// El canje es público (/api/invitations/redeem no pide sesión: quien llega
-// invitado no tiene ninguna), así que lo que cuesta atenderlo lo elige un
-// desconocido. scrypt con N=65536 son ~64 MiB y ~100 ms por llamada, y el
-// threadpool de libuv tiene cuatro plazas: derivar antes de mirar el token es
-// regalarle a cualquiera la memoria de una máquina que puede ser una Raspberry
-// Pi. claimInstance ya lo hace en este orden —comprueba el token, deriva
-// después— y aquí faltaba.
-describe("lo que cuesta un token inventado", () => {
-  it("un token que no existe no deriva ninguna clave", async () => {
+// Redemption is public (/api/invitations/redeem asks for no session: whoever
+// arrives invited has none), so what it costs to serve is chosen by a stranger.
+// scrypt with N=65536 is ~64 MiB and ~100 ms per call, and libuv's threadpool
+// has four slots: deriving before looking at the token is handing anyone the
+// memory of a machine that may well be a Raspberry Pi. claimInstance already
+// does it in this order — check the token, derive afterwards — and here it was
+// missing.
+describe("what a made-up token costs", () => {
+  it("a token that does not exist derives no key", async () => {
     const result = await redeemInvitation({
       token: "inventado",
       email: "luis@example.com",
       password: "una contraseña larga",
     });
     expect(result).toEqual({ ok: false, reason: "unknown" });
-    expect(derivaciones.n).toBe(0);
+    expect(derivations.n).toBe(0);
   });
 
-  it("una caducada y una usada tampoco", async () => {
-    const caducada = await createInvitation(inviterId);
+  it("an expired one and a used one do not either", async () => {
+    const expired = await createInvitation(inviterId);
     await prisma.invitation.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
     await redeemInvitation({
-      token: caducada.token,
+      token: expired.token,
       email: "luis@example.com",
       password: "una contraseña larga",
     });
 
-    const usada = await createInvitation(inviterId);
+    const used = await createInvitation(inviterId);
     await redeemInvitation({
-      token: usada.token,
+      token: used.token,
       email: "luis@example.com",
       password: "una contraseña larga",
     });
-    const derivadasHastaAqui = derivaciones.n;
+    const derivationsSoFar = derivations.n;
     await redeemInvitation({
-      token: usada.token,
+      token: used.token,
       email: "eva@example.com",
       password: "otra contraseña larga",
     });
-    expect(derivaciones.n).toBe(derivadasHastaAqui);
+    expect(derivations.n).toBe(derivationsSoFar);
   });
 
-  it("una invitación buena sí deriva: la lectura previa no sustituye a nada", async () => {
+  it("a good invitation does derive: the preceding read replaces nothing", async () => {
     const { token } = await createInvitation(inviterId);
     await redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" });
-    expect(derivaciones.n).toBe(1);
+    expect(derivations.n).toBe(1);
   });
 
-  // La lectura previa es sólo coste: quien decide sigue siendo el UPDATE
-  // condicional. Si adelantar la comprobación hubiese movido la decisión, esta
-  // prueba —la del bloqueo, la única que discrimina— se habría puesto roja.
-  it("y sigue sin decidir nada: con la fila bloqueada el canje no prospera", async () => {
+  // The preceding read is only cost: what decides is still the conditional
+  // UPDATE. If moving the check earlier had moved the decision, this test — the
+  // lock one, the only one that discriminates — would have gone red.
+  it("and it still decides nothing: with the row locked the redemption does not go through", async () => {
     const { token } = await createInvitation(inviterId);
     const tokenHash = hashInvitationToken(token);
 
-    let liberar: () => void = () => {};
-    const bloqueada = new Promise<void>((resolve) => {
-      liberar = resolve;
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    let dentro: () => void = () => {};
-    const yaBloqueada = new Promise<void>((resolve) => {
-      dentro = resolve;
+    let entered: () => void = () => {};
+    const hasEntered = new Promise<void>((resolve) => {
+      entered = resolve;
     });
 
-    const retenedor = prisma.$transaction(async (tx) => {
+    const holder = prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         UPDATE invitations SET used_at = now()
         WHERE token_hash = ${tokenHash} AND used_at IS NULL`;
-      dentro();
-      await bloqueada;
+      entered();
+      await held;
     });
 
-    await yaBloqueada;
-    // La lectura previa ve la invitación todavía sin usar —el que la bloquea no
-    // ha confirmado— así que el canje pasa de largo y llega al UPDATE.
-    const tardio = redeemInvitation({
+    await hasEntered;
+    // The preceding read sees the invitation still unused — the transaction
+    // holding the lock has not committed — so the redemption sails past and
+    // reaches the UPDATE.
+    const late = redeemInvitation({
       token,
       email: "luis@example.com",
       password: "una contraseña larga",
     });
     await new Promise((resolve) => setTimeout(resolve, 200));
-    liberar();
-    await retenedor;
+    release();
+    await holder;
 
-    expect(await tardio).toEqual({ ok: false, reason: "used" });
-    expect(await usuariosNuevos()).toBe(0);
+    expect(await late).toEqual({ ok: false, reason: "used" });
+    expect(await newUsers()).toBe(0);
   });
 });
 
-// Las dos escrituras de la transacción tienen un índice único detrás. Contar
-// cualquier P2002 como «ese correo ya está cogido» le diría a quien llega
-// invitado algo falso sobre la cuenta de otro.
-describe("de qué índice único viene el rechazo", () => {
-  it("una passkey ya registrada no se cuenta como correo ocupado", async () => {
+// Both writes in the transaction have a unique index behind them. Counting any
+// P2002 as "that email is already taken" would tell whoever arrives invited
+// something false about somebody else's account.
+describe("which unique index the rejection comes from", () => {
+  it("an already registered passkey is not counted as a taken email", async () => {
     await prisma.webAuthnCredential.create({
       data: {
         userId: inviterId,
@@ -393,32 +398,33 @@ describe("de qué índice único viene el rechazo", () => {
       },
     });
     expect(result).toEqual({ ok: false, reason: "credential-taken" });
-    // Y como salta dentro de la transacción, la invitación tampoco se gasta.
+    // And since it fires inside the transaction, the invitation is not spent
+    // either.
     expect((await prisma.invitation.findFirst())?.usedAt).toBeNull();
-    expect(await usuariosNuevos()).toBe(0);
+    expect(await newUsers()).toBe(0);
   });
 });
 
-// Cerrar la sesión de un móvil perdido —subir token_version— no toca las
-// invitaciones que esa sesión creó: quedaban vivas hasta 72 horas, sin forma de
-// verlas ni de retirarlas.
-describe("ver y retirar invitaciones", () => {
-  it("registra quién entró por cada enlace", async () => {
+// Closing the session of a lost phone — bumping token_version — does not touch
+// the invitations that session created: they stayed alive for up to 72 hours,
+// with no way to see them or to withdraw them.
+describe("seeing and withdrawing invitations", () => {
+  it("records who came in through each link", async () => {
     const { token } = await createInvitation(inviterId);
-    const canje = await redeemInvitation({
+    const redemption = await redeemInvitation({
       token,
       email: "luis@example.com",
       password: "una contraseña larga",
     });
-    expect(canje.ok).toBe(true);
+    expect(redemption.ok).toBe(true);
 
-    const [fila] = await listInvitations();
-    expect(fila.state).toBe("redeemed");
-    expect(fila.createdByEmail).toBe("ana@example.com");
-    expect(fila.redeemedByEmail).toBe("luis@example.com");
+    const [row] = await listInvitations();
+    expect(row.state).toBe("redeemed");
+    expect(row.createdByEmail).toBe("ana@example.com");
+    expect(row.redeemedByEmail).toBe("luis@example.com");
   });
 
-  it("también cuando la cuenta se creó con passkey", async () => {
+  it("also when the account was created with a passkey", async () => {
     const { token } = await createInvitation(inviterId);
     await redeemInvitation({
       token,
@@ -431,23 +437,23 @@ describe("ver y retirar invitaciones", () => {
         deviceName: "un teléfono",
       },
     });
-    const [fila] = await listInvitations();
-    expect(fila.redeemedByEmail).toBe("luis@example.com");
+    const [row] = await listInvitations();
+    expect(row.redeemedByEmail).toBe("luis@example.com");
   });
 
-  it("la lista no lleva el token ni su hash a ninguna parte", async () => {
+  it("the list carries neither the token nor its hash anywhere", async () => {
     await createInvitation(inviterId);
-    const [fila] = await listInvitations();
-    expect(Object.keys(fila)).not.toContain("tokenHash");
-    expect(JSON.stringify(fila)).not.toContain("tokenHash");
+    const [row] = await listInvitations();
+    expect(Object.keys(row)).not.toContain("tokenHash");
+    expect(JSON.stringify(row)).not.toContain("tokenHash");
   });
 
-  it("revocar mata el enlace: quien lo tenga ya no puede canjearlo", async () => {
+  it("revoking kills the link: whoever holds it can no longer redeem it", async () => {
     const { token } = await createInvitation(inviterId);
-    const [fila] = await listInvitations();
-    expect(fila.state).toBe("pending");
+    const [row] = await listInvitations();
+    expect(row.state).toBe("pending");
 
-    expect(await revokeInvitation(fila.id)).toBe(true);
+    expect(await revokeInvitation(row.id)).toBe(true);
     expect((await listInvitations())[0].state).toBe("revoked");
     expect(
       await redeemInvitation({
@@ -456,65 +462,66 @@ describe("ver y retirar invitaciones", () => {
         password: "una contraseña larga",
       }),
     ).toEqual({ ok: false, reason: "used" });
-    expect(await usuariosNuevos()).toBe(0);
+    expect(await newUsers()).toBe(0);
   });
 
-  it("revocar una ya usada no prospera ni borra quién entró", async () => {
+  it("revoking an already used one does not go through and does not erase who came in", async () => {
     const { token } = await createInvitation(inviterId);
     await redeemInvitation({ token, email: "luis@example.com", password: "una contraseña larga" });
-    const [fila] = await listInvitations();
+    const [row] = await listInvitations();
 
-    expect(await revokeInvitation(fila.id)).toBe(false);
-    const despues = (await listInvitations())[0];
-    expect(despues.state).toBe("redeemed");
-    expect(despues.redeemedByEmail).toBe("luis@example.com");
-    expect(despues.usedAt).toEqual(fila.usedAt);
+    expect(await revokeInvitation(row.id)).toBe(false);
+    const after = (await listInvitations())[0];
+    expect(after.state).toBe("redeemed");
+    expect(after.redeemedByEmail).toBe("luis@example.com");
+    expect(after.usedAt).toEqual(row.usedAt);
   });
 
-  it("revocar algo que no existe no prospera", async () => {
+  it("revoking something that does not exist does not go through", async () => {
     expect(await revokeInvitation("no-es-un-id")).toBe(false);
   });
 
-  it("una caducada sin usar se ve como caducada, no como revocada", async () => {
+  it("an unused expired one shows as expired, not as revoked", async () => {
     await createInvitation(inviterId);
     await prisma.invitation.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
     expect((await listInvitations())[0].state).toBe("expired");
   });
 
-  // Revocar y canjear escriben la MISMA columna con la misma UPDATE condicional,
-  // así que las decide Postgres y no el orden en que dos manejadores leyeron. Si
-  // la revocación viviera en una columna aparte, esto devolvería true: habría
-  // «revocado» una invitación que en ese mismo instante estaba creando una
-  // cuenta, y la casa tendría un miembro que su registro da por no admitido.
-  it("una revocación que llega con el canje en vuelo no prospera", async () => {
+  // Revoking and redeeming write the SAME column with the same conditional
+  // UPDATE, so Postgres decides between them and not the order in which two
+  // handlers happened to read. If revocation lived in a separate column, this
+  // would return true: it would have "revoked" an invitation that at that very
+  // instant was creating an account, and the household would have a member its
+  // own record treats as never admitted.
+  it("a revocation arriving with the redemption in flight does not go through", async () => {
     const { token } = await createInvitation(inviterId);
     const tokenHash = hashInvitationToken(token);
-    const [fila] = await listInvitations();
+    const [row] = await listInvitations();
 
-    let liberar: () => void = () => {};
-    const bloqueada = new Promise<void>((resolve) => {
-      liberar = resolve;
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    let dentro: () => void = () => {};
-    const yaBloqueada = new Promise<void>((resolve) => {
-      dentro = resolve;
+    let entered: () => void = () => {};
+    const hasEntered = new Promise<void>((resolve) => {
+      entered = resolve;
     });
 
-    // El canje, retenido justo después de tomar la fila.
-    const canje = prisma.$transaction(async (tx) => {
+    // The redemption, held back right after taking the row.
+    const redemption = prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         UPDATE invitations SET used_at = now()
         WHERE token_hash = ${tokenHash} AND used_at IS NULL`;
-      dentro();
-      await bloqueada;
+      entered();
+      await held;
     });
 
-    await yaBloqueada;
-    const revocacion = revokeInvitation(fila.id);
+    await hasEntered;
+    const revocation = revokeInvitation(row.id);
     await new Promise((resolve) => setTimeout(resolve, 200));
-    liberar();
-    await canje;
+    release();
+    await redemption;
 
-    expect(await revocacion).toBe(false);
+    expect(await revocation).toBe(false);
   });
 });

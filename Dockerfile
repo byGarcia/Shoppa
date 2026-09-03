@@ -49,7 +49,7 @@ COPY --chown=node:node --from=builder /app/scripts/auth-password.mjs ./scripts/a
 # The `.env.local` loader prisma/seed.ts imports. One file, not the whole of
 # src/: the runner has no bundler and no path aliases, so anything copied here
 # has to be importable by plain `node` with a relative specifier.
-COPY --chown=node:node --from=builder /app/src/entorno.ts ./src/entorno.ts
+COPY --chown=node:node --from=builder /app/src/env-local.ts ./src/env-local.ts
 
 EXPOSE 3004
 

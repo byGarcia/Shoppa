@@ -291,6 +291,28 @@ function rateLimitKey(ip: string, pathname: string, strictRoute: string | undefi
 
 let booted = false;
 
+// The boot announcement below opens a database connection and nothing in the
+// request path waits for it — which is the point, and also the reason it cannot
+// be observed without a handle on it. This is that handle. It settles whether
+// the announcement printed, decided there was nothing to print, or failed; the
+// `.catch` is what makes that true.
+//
+// It exists for `src/proxy.test.ts`, which has to read the printed token and
+// check that another copy of `@/server/setup` accepts it. The alternative is
+// waiting a fixed number of milliseconds for a database round trip, and that
+// test failed roughly one run in twelve on a loaded machine, twice taking an
+// unrelated task down with it. A promise is the only thing here that is not a
+// guess about how long Postgres will take.
+//
+// Production never awaits it: `bootOnce` assigns and moves on, exactly as the
+// bare `void` did.
+let announcement: Promise<void> = Promise.resolve();
+
+/** The boot announcement's promise. See `announcement` above; used by tests. */
+export function setupAnnouncement(): Promise<void> {
+  return announcement;
+}
+
 // Validated on the first request, never at module scope: middleware module
 // scope runs on cold start before any request, and tooling (next build, the
 // test runner) imports this module with neither APP_ORIGIN nor a database.
@@ -316,7 +338,7 @@ function bootOnce(): void {
   // than swallowed — an instance that cannot print its token is one nobody can
   // install, and silence there is the difference between a five-second fix and
   // an afternoon.
-  void isClaimed()
+  announcement = isClaimed()
     .then((claimed) => {
       if (!claimed) console.info(`[setup] installation token: ${setupToken()}`);
     })
