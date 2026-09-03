@@ -1,43 +1,52 @@
 # Shoppa
 
-Shoppa is a shared shopping list for one household, self-hosted: everybody in the house writes to
-the same list from their own phone, and each thing you type drops into its shop tab and its aisle
-section on its own. It also watches prices — paste a product URL and Shoppa reads that page every
-morning, keeps the history, and tells you on Telegram when the price falls below what it cost the
-day you added it.
+**The shopping list your household actually shares.** Type `leche entera` from the sofa and it is
+already there, under *Dairy*, on the phone of whoever walks into the shop next — one list, a tab per
+supermarket, and no arguing about who was supposed to buy the milk. It also keeps an eye on the
+price of the things you are waiting to get cheaper, and messages you on Telegram the morning one
+drops.
 
-One container and a PostgreSQL database. No account anywhere: nothing is signed up for and nobody
-holds your list but you. Three things do cross the boundary, all three because you asked for them —
-Shoppa fetches the product pages you tell it to watch, it sends the price-drop message to the
-Telegram bot you configured, and your browser loads each tracked product's thumbnail straight from
-the shop's own servers, which is why the content-security policy has to allow images from any
-`https` origin.
+Self-hosted, one container and a PostgreSQL database. No account anywhere, no plan, no tier: your
+list lives on your machine and nobody else holds a copy.
 
 ![The list, in English](docs/screenshots/list-en-light.png)
 
-## What it does
+## What it feels like to use
 
-- **One list for the household.** A tab per shop plus an inbox for things not assigned to one yet.
-  Rows have no owner: whoever picks it up ticks it.
-- **It files things for you.** A bundled dictionary of 556 product words, Spanish and English, puts
-  each item under a category. Correct it once and the correction wins from then on.
-- **Price tracking.** Paste a URL, Shoppa reads the current price and keeps it as the reference.
-  Every morning it checks again, records the history and sends a Telegram message on a drop. If a
-  shop refuses to be read, it says so instead of inventing a number, and you can type the reference
-  by hand.
-- **Voice input.** iOS Shortcuts add and remove items by dictation, and the share sheet can send a
-  product page straight to price tracking. Each person uses their own bearer token.
-- **Passkeys or passwords.** Passkeys where the browser allows them, passwords everywhere else —
-  which includes every plain-HTTP LAN address, because WebAuthn needs a secure context.
-- **Installable.** A PWA, online-only, with a light and a dark theme. The theme is chosen in
-  settings and remembered in that browser; it does not follow the system setting.
-- **Two languages.** Spanish and English. The language follows what the browser asks for and can be
-  overridden in settings, per browser rather than per account.
+- **You type, it files.** A bundled dictionary of 556 product words — Spanish and English — drops
+  each thing you add into a category, so the list arrives at the shop already grouped the way the
+  aisles are. Nothing to configure; it works on the first item you type.
+- **Correct it once and it stays corrected.** Move something to another category and Shoppa
+  remembers that word for good. The whole dictionary is a screen in Settings, searchable, with your
+  corrections marked apart from the factory ones.
+- **One list, every phone.** No rows have owners: one of you adds from home while another ticks
+  things off in the shop, and both screens keep up on their own. A tab per shop, a counter on each,
+  plus an inbox for the things nobody has decided where to buy yet.
+- **Ticking off is the whole interaction.** A tap on the circle, a progress bar that fills, and a
+  *Clear ticked* button when you are done. Forget to press it and the ticked rows disappear on
+  their own two weeks later.
+- **"Hey Siri, add to the shopping list."** Dictate it walking to the car and it is on the list
+  before you get in, filed under its category — Siri reads back which one. A second shortcut takes
+  things off. Each person's phone uses its own token.
+- **Watch a price and then forget about it.** Paste a product URL — or send one from any shop's app
+  through the iOS share sheet — and Shoppa reads that page every morning, keeps the history, and
+  sends one Telegram message when the price goes below what you set as the reference. One message
+  per drop, not one every morning while it stays cheap. If a shop refuses to be read it says so
+  instead of inventing a number.
+- **Sign in the way your network allows.** A passkey where the browser will make one, a password
+  everywhere else — which includes every plain-HTTP address on your own LAN, because WebAuthn needs
+  a secure context. Running Shoppa at `http://192.168.1.50:3004` is a first-class way to run it, not
+  a degraded one.
+- **Two languages under one roof.** Spanish and English, following whatever each browser asks for
+  and overridable per browser in Settings, so nobody in the house has to read the other one's
+  language.
+- **Installable, light and dark.** A PWA that goes on the home screen and opens without browser
+  chrome. It is online-only by design: authenticated data is never cached on the device.
 
 | | |
 |---|---|
 | ![The list in Spanish, dark theme](docs/screenshots/list-es-dark.png) | ![Settings](docs/screenshots/settings-es.png) |
-| The same list in Spanish and in the dark theme, chosen in settings. | Settings: shops, categories, the dictionary, Siri, Telegram, passkeys, invitations, theme and language. |
+| The same list in Spanish and in dark. The theme is chosen in Settings and remembered in that browser; it does not follow the system setting. | Everything you can change: shops, categories, the dictionary, Siri, Telegram, passkeys, invitations, theme and language. |
 
 ![The same list at desktop width](docs/screenshots/list-desktop-es.png)
 
@@ -90,35 +99,29 @@ Then create your first shop in Settings, and start typing.
 
 ## Configuration
 
-Full table in [docs/installation.md](docs/installation.md). The short version:
+Three variables are required; everything else has a default that works. The full table, with what
+breaks when each one is wrong, is in [docs/installation.md](docs/installation.md). The ones people
+actually change:
 
 | Variable | Default | What it is |
 |---|---|---|
-| `APP_ORIGIN` | — **required** | The origin browsers use. Its scheme decides cookie security and HSTS. |
-| `AUTH_SECRET` | — **required** | Signs sessions, and seeds the install token. |
-| `POSTGRES_PASSWORD` | — **required** | The bundled database's password; `DATABASE_URL` is built from it. |
-| `AUTH_MODE` | `auto` | `auto`, `passkey` or `password`. An unknown value is refused rather than defaulted — but on the first request, not at boot: the container comes up and answers 500. |
-| `TRUSTED_PROXY` | `none` | `none`, `x-real-ip`, `xff` or `cloudflare`. Which header carries the client IP. |
-| `PRICE_FETCH_MODE` | `local` | `local` fetches product pages itself; `assisted` waits for a fetcher in your network. |
-| `PRICE_CHECK_CRON` | `0 8 * * *` | When the daily price run fires, or `off`. |
-| `TZ` | UTC | The timezone `PRICE_CHECK_CRON` is read in. A container is UTC unless you set this. |
-| `SETUP_TOKEN` | derived from `AUTH_SECRET` | Set it yourself if you would rather not read the log. |
-| `WEBAUTHN_RP_ID` | host of `APP_ORIGIN` | Only set it if your passkeys were registered against a parent domain. |
-| `WEBAUTHN_ORIGIN` | `APP_ORIGIN` | Same. |
+| `TZ` | UTC | The timezone the daily price run is scheduled in. A container is UTC unless you set this. |
+| `PRICE_CHECK_CRON` | `0 8 * * *` | When that run fires, or `off`. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | unset | Where price-drop alerts go. Without them the run still works, silently. |
-| `N8N_API_KEY` | unset | Bearer key for the machine-to-machine price endpoints. Required in `assisted` mode. The name is a leftover; see [docs/price-tracking.md](docs/price-tracking.md). |
+| `TRUSTED_PROXY` | `none` | `none`, `x-real-ip`, `xff` or `cloudflare`. Which header carries the client IP. |
+| `AUTH_MODE` | `auto` | `auto`, `passkey` or `password`. |
 
 Two traps worth reading before you deploy:
 
+- **`TRUSTED_PROXY=none` turns per-IP rate limiting off entirely**, because with no trustworthy
+  header there is no address to key a bucket on, and one the caller picks is worse than none. What
+  is left is a per-account throttle and a flat per-route ceiling. An instance reachable from the
+  internet belongs behind a reverse proxy you control, with `TRUSTED_PROXY` set to match the header
+  that proxy writes.
 - **A `WEBAUTHN_RP_ID` or `WEBAUTHN_ORIGIN` that is defined but empty is a fatal error**, on
   purpose. Delete the line or give it a value; never leave it blank. It is fatal at the first
-  passkey ceremony rather than at boot — nothing validates those two variables until something
-  needs them — so a blank line here is a working instance that fails the day somebody adds a key.
-- **`TRUSTED_PROXY=none` turns the per-IP rate limiting off entirely**, because with no
-  trustworthy header there is no address to key a bucket on and one the caller picks is worse than
-  none. What is left is a per-account throttle and a flat per-route ceiling. An instance reachable
-  from the internet belongs behind a reverse proxy you control, with `TRUSTED_PROXY` set to match
-  the header that proxy writes.
+  passkey ceremony rather than at boot, so a blank line here is a working instance that fails the
+  day somebody adds a key.
 
 ## What it is not
 
@@ -144,11 +147,23 @@ Two traps worth reading before you deploy:
 - **Some shops cannot be read from a datacenter address.** That is what `assisted` mode exists
   for; see [docs/price-tracking.md](docs/price-tracking.md).
 - **The image is larger than it needs to be.** It ships the whole `node_modules` rather than a
-  traced standalone bundle. The one thing the tracer would leave out and the container needs is the
-  `prisma` CLI: it is a devDependency, no application code imports it, and `prisma migrate deploy`
-  is the first step of every boot. The seed and the password rescue are not part of the problem —
-  both talk to PostgreSQL through `pg` on purpose, precisely so they do not need the generated
-  client. Recorded in [PRODUCT.md](PRODUCT.md).
+  traced standalone bundle, because the one thing the tracer would leave out is the `prisma` CLI —
+  a devDependency that no application code imports, and `prisma migrate deploy` is the first step
+  of every boot. Recorded in [PRODUCT.md](PRODUCT.md).
+
+Three things cross the boundary of your network, all three because you asked for them: Shoppa
+fetches the product pages you told it to watch, it sends the price-drop message to the Telegram bot
+you configured, and your browser loads each tracked product's thumbnail straight from the shop's own
+servers — which is why the content-security policy has to allow images from any `https` origin.
+
+## Documentation
+
+- [docs/usage.md](docs/usage.md) — using it: the list, the categories, the shops, prices, voice.
+- [docs/installation.md](docs/installation.md) — compose, every variable, first run, invitations,
+  recovery.
+- [docs/price-tracking.md](docs/price-tracking.md) — the two fetch modes, the schedule, Telegram.
+- [docs/siri-shortcut.md](docs/siri-shortcut.md) — building the Shortcuts and the tokens they use.
+- [PRODUCT.md](PRODUCT.md) — what Shoppa owns, and the decisions that shaped it.
 
 ## Development
 
@@ -188,12 +203,12 @@ pnpm check        # lint, typecheck, i18n, tests, build
 The test suite runs against that same database and mutates it on purpose. `pnpm db:seed` is
 idempotent, so re-running it after a suite is harmless.
 
-## Documentation
+## Support
 
-- [docs/installation.md](docs/installation.md) — compose, every variable, first run, invitations,
-  recovery.
-- [docs/price-tracking.md](docs/price-tracking.md) — the two fetch modes, the schedule, Telegram.
-- [docs/siri-shortcut.md](docs/siri-shortcut.md) — building the Shortcuts and the tokens they use.
+Shoppa is free and stays free. If it saved you an argument about who was supposed to buy the milk
+and you feel like buying some back, the sponsor button at the top of this repository points at
+[GitHub Sponsors](https://github.com/sponsors/byGarcia), [Ko-fi](https://ko-fi.com/G2G313ECAN) and
+[Liberapay](https://liberapay.com/bygarcia). A star or a good bug report is worth just as much.
 
 ## License
 

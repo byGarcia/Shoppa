@@ -3,8 +3,9 @@
 ## Purpose
 
 Shoppa is a shared shopping list for one household, self-hosted. Everybody in the house writes to
-the same list from their own phone, each item files itself into a shop tab and an aisle section, and
-tracked product pages are re-read every morning so a price drop reaches Telegram.
+the same list from their own phone, each item lands in the shop tab it was added to and files itself
+into an aisle section, and tracked product pages are re-read every morning so a price drop reaches
+Telegram.
 
 It is deliberately small. One container, one PostgreSQL database, no account anywhere. The only
 things that cross the boundary are the ones the household asks for: the product pages it tracks, the
