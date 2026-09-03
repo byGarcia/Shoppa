@@ -540,6 +540,40 @@ describe("las lecturas no gastan el cupo de las escrituras", () => {
   });
 });
 
+/**
+ * Waits for the boot announcement to appear rather than for a stopwatch.
+ *
+ * The line comes out of `void isClaimed()` — a promise nobody awaits — and that
+ * promise opens a database connection. How long it takes is therefore a
+ * property of the machine, not of the code: a cold pool on a loaded CI runner
+ * is not a laptop with a warm one. The fixed 50 ms sleep that used to sit here
+ * was a bet on that timing, and it lost roughly one run in four; a stranger's
+ * first pull request would go red for something they had not touched.
+ *
+ * The ceiling is deliberately far larger than any plausible connection so that
+ * reaching it means the announcement is genuinely never coming — a real
+ * failure, not a slow moment. Reaching it costs nothing on the happy path,
+ * where the loop exits on the first poll that sees the line.
+ */
+const SETUP_LINE_TIMEOUT_MS = 4_000;
+
+/** Structural, so it fits any console spy without naming Vitest's mock types. */
+type ConsoleSpy = { mock: { calls: unknown[][] } };
+
+async function waitForSetupLine(info: ConsoleSpy, warn: ConsoleSpy): Promise<string | undefined> {
+  const deadline = Date.now() + SETUP_LINE_TIMEOUT_MS;
+  for (;;) {
+    const line = info.mock.calls.map((c) => String(c[0])).find((l) => l.includes("[setup]"));
+    if (line) return line;
+    // The proxy reports a failed announcement instead of swallowing it, so a
+    // warning means the answer has already arrived and it is "no line". Waiting
+    // out the ceiling for it would only make the failure slower to read.
+    if (warn.mock.calls.some((c) => String(c[0]).includes("[setup]"))) return undefined;
+    if (Date.now() >= deadline) return undefined;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 describe("el token de instalación en el arranque", () => {
   afterEach(() => {
     vi.doUnmock("@/server/setup");
@@ -594,18 +628,23 @@ describe("el token de instalación en el arranque", () => {
     });
 
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { proxy } = await import("./proxy.ts");
     await proxy(new NextRequest("https://shopping.example.com/favicon.ico"));
-    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const linea = info.mock.calls.map((c) => String(c[0])).find((l) => l.includes("[setup]"));
-    expect(linea).toBeDefined();
-    const impreso = linea!.split(": ")[1];
+    const linea = await waitForSetupLine(info, warn);
+    const fallo = warn.mock.calls.find((c) => String(c[0]).includes("[setup]"));
     info.mockRestore();
+    warn.mockRestore();
+    expect(linea, fallo ? `boot reported: ${fallo.map(String).join(" ")}` : undefined).toBeDefined();
+    const impreso = linea!.split(": ")[1];
 
     // Otra instancia del módulo, como la que compila Next para las rutas.
     vi.resetModules();
     const otraCopia = await import("@/server/setup");
     expect(otraCopia.setupTokenMatches(impreso)).toBe(true);
-  });
+    // Above the wait's own ceiling on purpose: when the announcement never
+    // arrives the failure should be this test's assertion, naming what was
+    // missing, and not the runner's generic timeout.
+  }, 15_000);
 });
