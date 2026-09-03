@@ -46,6 +46,7 @@ const { setupToken } = await import("@/server/setup");
 const { createInvitation, hashInvitationToken } = await import("@/server/invitations");
 const { resetThrottleForTests, MAX_FAILURES } = await import("@/lib/login-throttle");
 const { passkeyAccountStateFor } = await import("./reauthenticate.ts");
+const { closedPasskeyCard, passkeyUse } = await import("@/lib/passkey-addition");
 
 const ORIGINAL = { ...process.env };
 
@@ -371,11 +372,14 @@ describe("volver a demostrar quién eres antes de registrar", () => {
 // La tarjeta de Ajustes no tenía a quién preguntar y decía lo mismo para todas
 // las cuentas: que la contraseña dejaría de funcionar. Una cuenta migrada de la
 // aplicación anterior no tiene contraseña, así que era falso de principio a fin.
-// Estas dos cosas —si hay contraseña y cuántas passkeys hay— son lo único que
-// necesita para contarlo bien, y salen de la misma fila que ya lee
+// Si hay contraseña, cuántas passkeys hay y cuáles son: eso es lo único que
+// necesita para contarlo bien, y sale de la misma fila que ya lee
 // reauthenticate.
 describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
-  async function ponPasskey(credentialId: string) {
+  async function ponPasskey(
+    credentialId: string,
+    extra: { deviceName?: string; createdAt?: Date; lastUsedAt?: Date } = {},
+  ) {
     await prisma.webAuthnCredential.create({
       data: {
         userId,
@@ -383,7 +387,9 @@ describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
         publicKey: "clave",
         counter: 0n,
         transports: ["internal"],
-        deviceName: "Antigua",
+        deviceName: extra.deviceName ?? "Antigua",
+        ...(extra.createdAt ? { createdAt: extra.createdAt } : {}),
+        ...(extra.lastUsedAt ? { lastUsedAt: extra.lastUsedAt } : {}),
       },
     });
   }
@@ -393,17 +399,17 @@ describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
       reauth: "password",
       hasPassword: true,
       passkeyCount: 0,
+      passkeys: [],
     });
   });
 
   it("una cuenta migrada —passkey y ninguna contraseña— dice que no la tiene", async () => {
     await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
     await ponPasskey("la-que-ya-tenia");
-    expect(await passkeyAccountStateFor(userId)).toEqual({
-      reauth: "presence",
-      hasPassword: false,
-      passkeyCount: 1,
-    });
+    const estado = await passkeyAccountStateFor(userId);
+    expect(estado.reauth).toBe("presence");
+    expect(estado.hasPassword).toBe(false);
+    expect(estado.passkeyCount).toBe(1);
   });
 
   it("cuenta las passkeys que ya hay, que es lo que decide si ésta es una más", async () => {
@@ -421,6 +427,7 @@ describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
       reauth: null,
       hasPassword: false,
       passkeyCount: 0,
+      passkeys: [],
     });
   });
 
@@ -429,15 +436,21 @@ describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
       reauth: null,
       hasPassword: false,
       passkeyCount: 0,
+      passkeys: [],
     });
   });
 
-  // La respuesta va tal cual al navegador (GET de la ruta de registro): tres
+  // La respuesta va tal cual al navegador (GET de la ruta de registro): cuatro
   // campos y ninguno más. Ni el hash, ni un trozo, ni su longitud.
   it("no lleva el hash ni ningún otro campo de la fila", async () => {
     const fila = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const estado = await passkeyAccountStateFor(userId);
-    expect(Object.keys(estado).sort()).toEqual(["hasPassword", "passkeyCount", "reauth"]);
+    expect(Object.keys(estado).sort()).toEqual([
+      "hasPassword",
+      "passkeyCount",
+      "passkeys",
+      "reauth",
+    ]);
     const json = JSON.stringify(estado);
     expect(json).not.toContain(fila.passwordHash);
     // Ni un trozo: un prefijo del hash es tan publicable como el hash entero.
@@ -461,7 +474,129 @@ describe("lo que la tarjeta puede preguntar sobre su propia cuenta", () => {
         deviceName: "Suya",
       },
     });
-    expect((await passkeyAccountStateFor(userId)).passkeyCount).toBe(0);
+    const estado = await passkeyAccountStateFor(userId);
+    expect(estado.passkeyCount).toBe(0);
+    expect(estado.passkeys).toEqual([]);
+  });
+});
+
+/**
+ * La lista que nunca se había enseñado. La casa que dio el aviso entra con su
+ * passkey todos los días y Ajustes seguía invitándole a poner la primera: el
+ * servidor sabía cuántas tenía y cuáles eran, y nadie se lo había preguntado.
+ */
+describe("las passkeys que devuelve para pintarlas", () => {
+  const ANTES = new Date("2026-06-01T09:00:00.000Z");
+  const DESPUES = new Date("2026-09-02T07:14:00.000Z");
+
+  beforeEach(async () => {
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
+  });
+
+  async function ponPasskey(credentialId: string, deviceName: string, fechas?: { createdAt: Date; lastUsedAt: Date }) {
+    await prisma.webAuthnCredential.create({
+      data: {
+        userId,
+        credentialId,
+        publicKey: "clave-publica-secreta",
+        counter: 7n,
+        transports: ["internal", "hybrid"],
+        deviceName,
+        ...(fechas ?? {}),
+      },
+    });
+  }
+
+  it("da el nombre del dispositivo y las dos fechas, en ISO", async () => {
+    await ponPasskey("la-del-movil", "iPhone", { createdAt: ANTES, lastUsedAt: DESPUES });
+    const [passkey] = (await passkeyAccountStateFor(userId)).passkeys;
+    expect(passkey).toEqual({
+      deviceName: "iPhone",
+      createdAt: ANTES.toISOString(),
+      lastUsedAt: DESPUES.toISOString(),
+    });
+  });
+
+  it("no lleva el id de la credencial, ni la clave pública, ni el contador", async () => {
+    await ponPasskey("la-del-movil", "iPhone");
+    const json = JSON.stringify((await passkeyAccountStateFor(userId)).passkeys);
+    // No hay ninguna ruta que borre una credencial en esta versión, así que un
+    // id en la respuesta sería el asa de una operación que no existe.
+    expect(json).not.toContain("la-del-movil");
+    expect(json).not.toContain("clave-publica-secreta");
+    expect(json).not.toContain("counter");
+    expect(json).not.toContain("transports");
+  });
+
+  it("las devuelve de la más nueva a la más vieja", async () => {
+    await ponPasskey("vieja", "Mac", { createdAt: ANTES, lastUsedAt: ANTES });
+    await ponPasskey("nueva", "iPhone", { createdAt: DESPUES, lastUsedAt: DESPUES });
+    const estado = await passkeyAccountStateFor(userId);
+    expect(estado.passkeys.map((p) => p.deviceName)).toEqual(["iPhone", "Mac"]);
+  });
+
+  it("el contador y la lista son el mismo hecho: no pueden discrepar", async () => {
+    await ponPasskey("una", "iPhone");
+    await ponPasskey("otra", "Mac");
+    const estado = await passkeyAccountStateFor(userId);
+    expect(estado.passkeyCount).toBe(estado.passkeys.length);
+  });
+
+  it("una recién registrada sale como no usada, no como usada hoy", async () => {
+    // Las dos columnas valen CURRENT_TIMESTAMP por defecto y se rellenan en la
+    // misma sentencia, así que la igualdad es lo que distingue «sin estrenar»
+    // de «usada»: es de donde la tarjeta saca «Nunca usada».
+    await ponPasskey("sin-estrenar", "Windows");
+    const [passkey] = (await passkeyAccountStateFor(userId)).passkeys;
+    expect(passkey.lastUsedAt).toBe(passkey.createdAt);
+    expect(passkeyUse(passkey)).toEqual({ key: "neverUsed" });
+  });
+
+  it("no enseña las passkeys de otra cuenta", async () => {
+    const otra = await prisma.user.create({
+      data: { email: "luis@example.com", passwordHash: null },
+      select: { id: true },
+    });
+    await prisma.webAuthnCredential.create({
+      data: {
+        userId: otra.id,
+        credentialId: "la-de-luis",
+        publicKey: "clave",
+        counter: 0n,
+        transports: ["internal"],
+        deviceName: "El portátil de Luis",
+      },
+    });
+    await ponPasskey("la-mia", "iPhone");
+    const estado = await passkeyAccountStateFor(userId);
+    expect(estado.passkeys.map((p) => p.deviceName)).toEqual(["iPhone"]);
+  });
+});
+
+/**
+ * Y lo que hace la tarjeta con esa respuesta, en el caso que se avisó: una
+ * cuenta con una passkey no puede leer en ninguna parte que no tenga ninguna.
+ */
+describe("la tarjeta de Ajustes de una cuenta que ya entra con passkey", () => {
+  it("ni la invita a poner la primera ni dice que no tenga ninguna", async () => {
+    await prisma.user.update({ where: { id: userId }, data: { passwordHash: null } });
+    await prisma.webAuthnCredential.create({
+      data: {
+        userId,
+        credentialId: "la-de-cada-mañana",
+        publicKey: "clave",
+        counter: 3n,
+        transports: ["internal"],
+        deviceName: "iPhone",
+      },
+    });
+
+    const estado = await passkeyAccountStateFor(userId);
+    const cerrada = closedPasskeyCard({ available: true, account: estado });
+
+    expect(cerrada.subtitle).toEqual({ key: "subtitleCount", count: 1 });
+    expect(cerrada.action).toBe("addAnother");
+    expect(cerrada.passkeys.map((p) => p.deviceName)).toEqual(["iPhone"]);
   });
 });
 

@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 
 import { fetchJson } from "@/lib/fetcher";
+import type { PasskeyListEntry } from "@/lib/passkey-addition";
+import { groceryKeys } from "@/types";
 import { useTranslations } from "next-intl";
 
 export interface PasskeyRegistrationInput {
@@ -34,8 +37,26 @@ export interface PasskeyAccountState {
   reauth: ReauthMethod | null;
   /** Whether a password exists — the fact the card has to state, not the hash. */
   hasPassword: boolean;
-  /** How many passkeys the account already has. */
+  /** How many passkeys the account already has. Always `passkeys.length`. */
   passkeyCount: number;
+  /** Those passkeys, newest first. A name and two dates, nothing else. */
+  passkeys: PasskeyListEntry[];
+}
+
+/**
+ * The account, asked for when the card mounts rather than when its panel opens.
+ *
+ * It used to be asked on open, which meant the closed card — the one actually
+ * on the Settings screen — knew nothing and said the same thing to everybody.
+ * The cost of moving it is one request per visit to Settings, cached and
+ * deduplicated like every other query on the screen, against a card that
+ * describes the account it belongs to.
+ */
+export function usePasskeyAccount() {
+  return useQuery({
+    queryKey: groceryKeys.passkeys,
+    queryFn: () => fetchJson<PasskeyAccountState>("/api/auth/webauthn/register"),
+  });
 }
 
 /**
@@ -56,15 +77,6 @@ export function usePasskeyRegistration() {
   const t = useTranslations("toast");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  /**
-   * The account, straight from the server: which proof it can give, and what
-   * registering will actually do to it. The card guessed at the second half
-   * and got it wrong for every account that has no password.
-   */
-  async function accountState(): Promise<PasskeyAccountState> {
-    return fetchJson<PasskeyAccountState>("/api/auth/webauthn/register");
-  }
 
   async function register(input: PasskeyRegistrationInput = {}): Promise<boolean> {
     setPending(true);
@@ -124,5 +136,5 @@ export function usePasskeyRegistration() {
     }
   }
 
-  return { register, accountState, pending, error };
+  return { register, pending, error };
 }

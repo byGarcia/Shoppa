@@ -1,8 +1,15 @@
+import { createTranslator } from "next-intl";
 import { describe, expect, it } from "vitest";
 
 import en from "../../messages/en.json";
 import es from "../../messages/es.json";
-import { passkeyAddition, passkeyCopy } from "./passkey-addition.ts";
+import {
+  closedPasskeyCard,
+  passkeyAddition,
+  passkeyCopy,
+  passkeyUse,
+  type PasskeyListEntry,
+} from "./passkey-addition.ts";
 
 /**
  * La tarjeta de Ajustes no preguntaba nada y por eso le decía lo mismo a todo el
@@ -86,5 +93,143 @@ describe("qué texto se saca en cada caso", () => {
         expect(en.passkeyCard, clave).toHaveProperty(clave);
       }
     }
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+
+const IPHONE: PasskeyListEntry = {
+  deviceName: "iPhone",
+  createdAt: "2026-06-01T09:00:00.000Z",
+  lastUsedAt: "2026-09-02T07:14:00.000Z",
+};
+const RECIEN_CREADA: PasskeyListEntry = {
+  deviceName: "Mac",
+  // Las dos columnas por defecto valen `now()`: una credencial que no ha
+  // entrado nunca sigue llevando su hora de creación en `last_used_at`.
+  createdAt: "2026-09-01T12:00:00.000Z",
+  lastUsedAt: "2026-09-01T12:00:00.000Z",
+};
+
+describe("cuándo se usó una passkey", () => {
+  it("con una fecha de uso posterior, la nombra", () => {
+    expect(passkeyUse(IPHONE)).toEqual({ key: "lastUse", at: IPHONE.lastUsedAt });
+  });
+
+  it("recién registrada y sin estrenar, no inventa un día en el que no pasó nada", () => {
+    expect(passkeyUse(RECIEN_CREADA)).toEqual({ key: "neverUsed" });
+  });
+
+  it("una fecha ilegible no se convierte en un uso", () => {
+    expect(passkeyUse({ createdAt: "", lastUsedAt: "" })).toEqual({ key: "neverUsed" });
+  });
+});
+
+/**
+ * El defecto que da nombre a este trabajo. Quien entra con su passkey todos los
+ * días abría Ajustes y encontraba la misma tarjeta que alguien que no tiene
+ * ninguna: el mismo subtítulo, el mismo botón «Añadir» y nada, en ninguna parte,
+ * que reconociera la llave que acababa de usar. La tarjeta sólo preguntaba por
+ * la cuenta al abrir el panel, así que cerrada —que es como está en la pantalla—
+ * no sabía nada.
+ */
+describe("la tarjeta cerrada de Ajustes", () => {
+  const conUna = closedPasskeyCard({ available: true, account: { passkeys: [IPHONE] } });
+
+  it("con una passkey, no dice en ningún sitio que la cuenta no tenga ninguna", () => {
+    // Ni el subtítulo de estreno ni el botón de la primera llave.
+    expect(conUna.subtitle.key).not.toBe("subtitleReady");
+    expect(conUna.action).not.toBe("add");
+    // Y sí la enseña.
+    expect(conUna.passkeys).toEqual([IPHONE]);
+  });
+
+  it("dice cuántas tiene, contadas", () => {
+    expect(conUna.subtitle).toEqual({ key: "subtitleCount", count: 1 });
+    const conTres = closedPasskeyCard({
+      available: true,
+      account: { passkeys: [IPHONE, RECIEN_CREADA, IPHONE] },
+    });
+    expect(conTres.subtitle).toEqual({ key: "subtitleCount", count: 3 });
+  });
+
+  it("el botón ofrece una llave más, no la primera", () => {
+    expect(conUna.action).toBe("addAnother");
+  });
+
+  it("sin ninguna passkey sí ofrece la primera, con el texto de siempre", () => {
+    const vacia = closedPasskeyCard({ available: true, account: { passkeys: [] } });
+    expect(vacia.subtitle).toEqual({ key: "subtitleReady" });
+    expect(vacia.action).toBe("add");
+    expect(vacia.passkeys).toEqual([]);
+  });
+
+  it("mientras el servidor no ha contestado no afirma ninguna de las dos cosas", () => {
+    // El parpadeo entre dos afirmaciones sobre la cuenta es exactamente la
+    // clase de defecto que se está arreglando: aquí no hay botón que leer.
+    const cargando = closedPasskeyCard({ available: true, account: null });
+    expect(cargando.subtitle).toEqual({ key: "subtitleChecking" });
+    expect(cargando.action).toBeNull();
+    expect(cargando.passkeys).toEqual([]);
+  });
+
+  it("si la consulta falla lo dice, en vez de quedarse comprobando para siempre", () => {
+    const fallo = closedPasskeyCard({ available: true, account: null, failed: true });
+    expect(fallo.subtitle).toEqual({ key: "checkFailed" });
+    expect(fallo.action).toBeNull();
+  });
+
+  it("por http avisa de la conexión, pero sigue enseñando las llaves que hay", () => {
+    // La instancia no puede crear una passkey ahí; las que tiene la cuenta
+    // siguen existiendo, y esconderlas volvería a dejar la tarjeta sin decir
+    // nada de la cuenta.
+    const insegura = closedPasskeyCard({ available: false, account: { passkeys: [IPHONE] } });
+    expect(insegura.subtitle).toEqual({ key: "subtitleInsecure" });
+    expect(insegura.passkeys).toEqual([IPHONE]);
+    expect(insegura.action).toBe("addAnother");
+  });
+
+  it("todas las claves que elige existen en los dos catálogos", () => {
+    const cartas = [
+      conUna,
+      closedPasskeyCard({ available: true, account: { passkeys: [] } }),
+      closedPasskeyCard({ available: true, account: null }),
+      closedPasskeyCard({ available: true, account: null, failed: true }),
+      closedPasskeyCard({ available: false, account: null }),
+    ];
+    for (const carta of cartas) {
+      for (const clave of [carta.subtitle.key, carta.action]) {
+        if (clave === null) continue;
+        expect(es.passkeyCard, clave).toHaveProperty(clave);
+        expect(en.passkeyCard, clave).toHaveProperty(clave);
+      }
+    }
+    for (const clave of ["listTitle", "lastUse", "neverUsed"]) {
+      expect(es.passkeyCard, clave).toHaveProperty(clave);
+      expect(en.passkeyCard, clave).toHaveProperty(clave);
+    }
+  });
+});
+
+describe("el recuento, tal y como se lee en pantalla", () => {
+  // Con el mismo formateador que usa la aplicación: un plural ICU, no dos
+  // trozos de texto pegados a un número.
+  it("en castellano concuerda en singular y en plural", () => {
+    const t = createTranslator({ locale: "es", messages: es, namespace: "passkeyCard" });
+    expect(t("subtitleCount", { count: 1 })).toBe("Ya tienes 1 passkey en esta cuenta");
+    expect(t("subtitleCount", { count: 3 })).toBe("Ya tienes 3 passkeys en esta cuenta");
+  });
+
+  it("y en inglés también", () => {
+    const t = createTranslator({ locale: "en", messages: en, namespace: "passkeyCard" });
+    expect(t("subtitleCount", { count: 1 })).toBe("You already have 1 passkey on this account");
+    expect(t("subtitleCount", { count: 4 })).toBe("You already have 4 passkeys on this account");
+  });
+
+  it("el botón de la primera llave y el de una más no dicen lo mismo", () => {
+    // Si coincidieran, la cuenta con passkey volvería a leer «Añadir» y el
+    // arreglo no se notaría en la pantalla.
+    expect(es.passkeyCard.addAnother).not.toBe(es.passkeyCard.add);
+    expect(en.passkeyCard.addAnother).not.toBe(en.passkeyCard.add);
   });
 });

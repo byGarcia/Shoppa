@@ -104,4 +104,6 @@ export const groceryKeys = {
   voiceTokens: ["voice-tokens"] as const,
   invitations: ["invitations"] as const,
   prices: ["prices"] as const,
+  /** The account's own passkeys, listed on the Settings card. */
+  passkeys: ["passkeys"] as const,
 };

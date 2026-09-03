@@ -41,9 +41,32 @@ export type ReauthResult =
   | { ok: false; reason: "wrong-password" | "throttled" | "no-proof" | "unprovable" };
 
 /**
+ * One passkey, as the settings card lists it.
+ *
+ * Three fields, and the omissions are the point. The credential id, the public
+ * key and the counter stay in this module: the card has nothing to do with any
+ * of them, and this release has no route that takes a credential id — there is
+ * no way to delete one — so putting an id on the wire would hand the interface
+ * a handle to an operation that does not exist.
+ */
+export interface PasskeySummary {
+  /** The readable name the browser was given at registration time. */
+  deviceName: string;
+  /** ISO 8601, which is what it becomes on the wire anyway. */
+  createdAt: string;
+  /**
+   * ISO 8601, and never null: the column defaults to the insert timestamp, so
+   * a credential that has never signed anybody in carries its own creation
+   * time. That equality is how the card knows to say "never used" rather than
+   * name a date nothing happened on — see src/lib/passkey-addition.ts.
+   */
+  lastUsedAt: string;
+}
+
+/**
  * What the settings card is allowed to know about the account holding the
- * session: which proof it can give, and the two facts it needs to describe the
- * operation truthfully before running it.
+ * session: which proof it can give, and the facts it needs to describe both the
+ * account and the operation truthfully.
  *
  * Nothing here is about anybody else, and the hash never leaves this module —
  * `hasPassword` is the one bit of it the holder already knows.
@@ -53,8 +76,10 @@ export interface PasskeyAccountState {
   reauth: ReauthMethod | null;
   /** Whether a password exists at all. Never the hash, nor any part of it. */
   hasPassword: boolean;
-  /** How many passkeys the account already has. */
+  /** How many passkeys the account already has. Always `passkeys.length`. */
   passkeyCount: number;
+  /** Those same passkeys, newest first. What the closed card lists. */
+  passkeys: PasskeySummary[];
 }
 
 /**
@@ -65,18 +90,43 @@ export interface PasskeyAccountState {
  * older installation — no password, one passkey — every clause of that was
  * false, and the button offered a deletion that could not happen. The branch
  * below is the one `reauthenticate` already takes; this only says it out loud.
+ *
+ * It also hands back the credentials themselves, which had never been shown
+ * anywhere. The count alone left the closed card unable to say more than "add
+ * one", to an account that signs in with a passkey every day. The rows replace
+ * the `_count` this used to select — a `SELECT count(*)` over exactly these
+ * rows — so it is the same query and the same trip, reading three columns of a
+ * handful of rows instead of counting them.
  */
 export async function passkeyAccountStateFor(userId: string): Promise<PasskeyAccountState> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { passwordHash: true, _count: { select: { webauthnCredentials: true } } },
+    select: {
+      passwordHash: true,
+      webauthnCredentials: {
+        // Three columns and no others: see PasskeySummary for what is left in
+        // the table on purpose.
+        select: { deviceName: true, createdAt: true, lastUsedAt: true },
+        // Newest first, like the voice tokens and the invitations, so a key
+        // just added is the one at the top.
+        orderBy: { createdAt: "desc" },
+      },
+    },
   });
   // A session for an account that no longer exists proves nothing and is told
   // nothing: same shape as the account that cannot confirm itself.
-  if (!user) return { reauth: null, hasPassword: false, passkeyCount: 0 };
+  if (!user) return { reauth: null, hasPassword: false, passkeyCount: 0, passkeys: [] };
 
   const hasPassword = user.passwordHash !== null;
-  const passkeyCount = user._count.webauthnCredentials;
+  const passkeys = user.webauthnCredentials.map((credential) => ({
+    deviceName: credential.deviceName,
+    createdAt: credential.createdAt.toISOString(),
+    lastUsedAt: credential.lastUsedAt.toISOString(),
+  }));
+  // Derived rather than counted separately. The count and the list are one
+  // fact, and two readings of it are two things the card could show
+  // disagreeing — which is the class of defect this whole card keeps hitting.
+  const passkeyCount = passkeys.length;
   // An account with neither a password nor a credential cannot be signed into
   // at all, so a session for it should not exist. If one does, it cannot prove
   // anything and is refused rather than waved through.
@@ -85,7 +135,7 @@ export async function passkeyAccountStateFor(userId: string): Promise<PasskeyAcc
     : passkeyCount > 0
       ? "presence"
       : null;
-  return { reauth, hasPassword, passkeyCount };
+  return { reauth, hasPassword, passkeyCount, passkeys };
 }
 
 export async function reauthenticate(

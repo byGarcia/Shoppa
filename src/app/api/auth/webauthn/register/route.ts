@@ -35,10 +35,16 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * What the settings card needs before it opens: which proof this account can
- * give — password or presence ceremony — and whether adding a passkey will
- * destroy a password or simply add a second key. Scoped to the session's own
- * account, and says nothing its holder does not already know about it.
+ * Everything the settings card knows about the account, in one request made
+ * when the card mounts: which proof this account can give — password or
+ * presence ceremony — whether adding a passkey will destroy a password or
+ * simply add a second key, and the passkeys it already has, so the closed card
+ * can list them instead of inviting everybody to add their first.
+ *
+ * One endpoint rather than two, because the card needs both halves at the same
+ * moment and they come off the same row. Scoped to the session's own account,
+ * and says nothing its holder does not already know about it: no credential id,
+ * no public key, no counter.
  */
 export async function GET() {
   try {
