@@ -206,8 +206,8 @@ idempotent, so re-running it after a suite is harmless.
 ## Support
 
 Shoppa is free and stays free. If it saved you an argument about who was supposed to buy the milk
-and you feel like buying some back, the sponsor button at the top of this repository points at
-[GitHub Sponsors](https://github.com/sponsors/byGarcia), [Ko-fi](https://ko-fi.com/G2G313ECAN) and
+and you feel like buying some back, there is
+[GitHub Sponsors](https://github.com/sponsors/byGarcia) and
 [Liberapay](https://liberapay.com/bygarcia). A star or a good bug report is worth just as much.
 
 ## License
