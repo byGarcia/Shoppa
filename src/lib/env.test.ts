@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { appOrigin, assertEnv, authMode, isSecureOrigin, priceFetchMode, trustedProxy } from "./env.ts";
+import {
+  appOrigin,
+  assertEnv,
+  authMode,
+  defaultLocale,
+  isSecureOrigin,
+  priceFetchMode,
+  trustedProxy,
+} from "./env.ts";
 
 const ORIGINAL = { ...process.env };
 
@@ -69,5 +77,20 @@ describe("enumerated values", () => {
   it("PRICE_FETCH_MODE defaults to local", () => {
     withEnv({ APP_ORIGIN: "https://a.example", PRICE_FETCH_MODE: undefined });
     expect(priceFetchMode()).toBe("local");
+  });
+
+  it("DEFAULT_LOCALE defaults to es, so an instance already running does not change language", () => {
+    withEnv({ APP_ORIGIN: "https://a.example", DEFAULT_LOCALE: undefined });
+    expect(defaultLocale()).toBe("es");
+  });
+
+  it("DEFAULT_LOCALE takes a language the interface actually speaks", () => {
+    withEnv({ APP_ORIGIN: "https://a.example", DEFAULT_LOCALE: "en" });
+    expect(defaultLocale()).toBe("en");
+  });
+
+  it("a DEFAULT_LOCALE with no catalog is refused rather than falling back", () => {
+    withEnv({ APP_ORIGIN: "https://a.example", DEFAULT_LOCALE: "de" });
+    expect(() => assertEnv()).toThrow(/DEFAULT_LOCALE/);
   });
 });

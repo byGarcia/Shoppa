@@ -1,8 +1,10 @@
 import { createTranslator } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 
+import en from "../../messages/en.json";
 import es from "../../messages/es.json";
-import { DEFAULT_LOCALE } from "@/i18n/locale";
+import type { Locale } from "@/i18n/locale";
+import { defaultLocale } from "@/lib/env";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 
 /**
@@ -15,10 +17,11 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
  *
  * The catalog is per request, because the language is — and `getTranslations`
  * only works where `cookies()` does. Two callers are outside that: the Vitest
- * suite, which drives the route handlers directly, and any future work queued
- * off a request. Both fall back to the default catalog rather than throwing a
- * 500 over a label, which is also the honest answer: with no request there is
- * no reader to have a preference.
+ * suite, which drives the route handlers directly, and the scheduled price run,
+ * whose alerts are composed without any request at all. Both fall back to the
+ * installation's default catalog rather than throwing a 500 over a label, which
+ * is also the honest answer: with no request there is no reader to have a
+ * preference, so the operator's `DEFAULT_LOCALE` is the best guess there is.
  *
  * It sits in a module of its own — rather than in api-utils, where it is used
  * most — because the WebAuthn handlers need it too and api-utils reaches
@@ -27,6 +30,13 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
  */
 type Translator = Awaited<ReturnType<typeof getTranslations>>;
 
+/**
+ * Both catalogs, statically, so that the no-request fallback can honour
+ * `DEFAULT_LOCALE`. `src/i18n/request.ts` imports the one it needs dynamically;
+ * this path cannot await an import inside a synchronous translator.
+ */
+const CATALOGS: Record<Locale, typeof es> = { es, en };
+
 export async function serverTranslations(namespace: string): Promise<Translator> {
   try {
     return await getTranslations(namespace as never);
@@ -34,15 +44,16 @@ export async function serverTranslations(namespace: string): Promise<Translator>
     // Say so. The expected cause is "there is no request here" — the Vitest
     // suite drives the route handlers directly — but the same catch would
     // swallow a broken catalog or a misconfigured plugin and turn it into
-    // "everyone silently gets Spanish", which is the kind of failure that
-    // survives a release.
+    // "everyone silently gets the default language", which is the kind of
+    // failure that survives a release.
+    const locale = defaultLocale();
     console.warn(
-      `[i18n] falling back to the ${DEFAULT_LOCALE} catalog for "${namespace}":`,
+      `[i18n] falling back to the ${locale} catalog for "${namespace}":`,
       error instanceof Error ? error.message : error,
     );
     return createTranslator({
-      locale: DEFAULT_LOCALE,
-      messages: es,
+      locale,
+      messages: CATALOGS[locale],
       namespace: namespace as never,
     }) as Translator;
   }
@@ -53,11 +64,9 @@ export async function serverLocale(): Promise<string> {
   try {
     return await getLocale();
   } catch (error) {
-    console.warn(
-      `[i18n] falling back to ${DEFAULT_LOCALE}:`,
-      error instanceof Error ? error.message : error,
-    );
-    return DEFAULT_LOCALE;
+    const locale = defaultLocale();
+    console.warn(`[i18n] falling back to ${locale}:`, error instanceof Error ? error.message : error);
+    return locale;
   }
 }
 

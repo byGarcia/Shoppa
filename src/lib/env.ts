@@ -14,6 +14,8 @@
  * instance that comes up `Up` and answers 500 to everything.
  */
 
+import { LOCALES, type Locale } from "@/i18n/locale";
+
 const AUTH_MODES = ["auto", "passkey", "password"] as const;
 const TRUSTED_PROXIES = ["none", "x-real-ip", "xff", "cloudflare"] as const;
 const PRICE_FETCH_MODES = ["local", "assisted"] as const;
@@ -72,6 +74,21 @@ export function priceFetchMode(): PriceFetchMode {
   return oneOf("PRICE_FETCH_MODE", PRICE_FETCH_MODES, "local");
 }
 
+/**
+ * The language of a request that asks for none this installation speaks, and of
+ * text composed with no request at all — the price alerts a scheduled run
+ * sends, which have no reader to have a preference.
+ *
+ * It is configuration and not a constant because `es` is what the first
+ * installation happened to speak, and a default belongs to a new one. The
+ * default stays `es` so that no instance already running changes language
+ * underneath its household; an installation that speaks something else says so
+ * here.
+ */
+export function defaultLocale(): Locale {
+  return oneOf("DEFAULT_LOCALE", LOCALES, "es");
+}
+
 /** A cron expression, or "off". Parsed for real in src/lib/scheduler.ts. */
 export function priceCheckCron(): string {
   const raw = process.env.PRICE_CHECK_CRON;
@@ -81,7 +98,7 @@ export function priceCheckCron(): string {
 
 /**
  * Called from bootOnce() in src/proxy.ts, on the first request — not at boot,
- * whatever the name suggests. Touches the five variables this file owns, so the
+ * whatever the name suggests. Touches the six variables this file owns, so the
  * first bad one throws here rather than deep inside a handler.
  *
  * `priceCheckCron` is touched but not validated, on purpose: it only reads the
@@ -113,5 +130,6 @@ export function assertEnv(): void {
   authMode();
   trustedProxy();
   priceFetchMode();
+  defaultLocale();
   priceCheckCron();
 }

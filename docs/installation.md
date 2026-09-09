@@ -145,6 +145,7 @@ migrations at boot, so give it a database of its own.
 | `AUTH_MODE` | `auto` | `auto` accepts both a passkey and a password; `passkey` refuses passwords instance-wide; `password` refuses passkeys instance-wide, including registering one. **An unrecognised value is refused rather than defaulted** — a typo must not silently widen what is accepted. It is refused on the first request, not at boot: see the note below the table. Switching a live instance to `passkey` locks out anybody who only has a password. |
 | `TRUSTED_PROXY` | `none` | Which header is believed to carry the client IP: `none`, `x-real-ip`, `xff` (`X-Forwarded-For`) or `cloudflare` (`CF-Connecting-IP`). Only the named header is read. An unrecognised value is refused rather than defaulted, on the first request. See [Behind a reverse proxy](#behind-a-reverse-proxy). |
 | `PRICE_FETCH_MODE` | `local` | `local` downloads product pages from this host. `assisted` expects a fetcher inside your own network and enables the three machine-to-machine endpoints. See [price tracking](price-tracking.md). |
+| `DEFAULT_LOCALE` | `es` | `es` or `en`: the language of a request whose `Accept-Language` names neither, and of the text nobody requested — the **price-drop alerts** the daily run sends, which are composed by a timer and so have no browser to ask. A browser that does ask for one of the two gets it regardless, and Settings overrides both. An unrecognised value is refused rather than defaulted, on the first request. The default is `es` because that is what the first installations run, not because it is the better default for yours. |
 | `PRICE_CHECK_CRON` | `0 8 * * *` | When the built-in daily price run fires. `off` disables it. An expression the parser cannot read is reported by name in the log and **no run is scheduled at all** — the instance keeps serving the shopping list, which is the right trade, but check the log after changing this. |
 | `TZ` | UTC | The timezone `PRICE_CHECK_CRON` is evaluated in. **A container is UTC unless you say otherwise**, so `0 8 * * *` means 09:00 or 10:00 local in most of Europe. Set it, for example `TZ=Europe/Madrid`. An unknown zone name is refused the same way a bad expression is. |
 | `SETUP_TOKEN` | derived from `AUTH_SECRET` | The token that claims an unclaimed instance. Leave it unset and the derived value is printed to the log on the first request of every boot, for as long as no account exists. Set it if you would rather not read the log. |
@@ -155,7 +156,8 @@ migrations at boot, so give it a database of its own.
 | `N8N_API_KEY` | unset | Bearer key for the machine-to-machine price endpoints (`/api/prices/check`, and in `assisted` mode `queue`, `ingest` and `fetch-jobs`). Those routes answer 500 while it is unset, and 401 to a wrong key. |
 
 **"Refused" does not mean the container refuses to start.** `APP_ORIGIN`, `AUTH_MODE`,
-`TRUSTED_PROXY` and `PRICE_FETCH_MODE` are validated together, on the **first request**, and
+`TRUSTED_PROXY`, `PRICE_FETCH_MODE` and `DEFAULT_LOCALE` are validated together, on the
+**first request**, and
 deliberately so: the same module is imported by `next build` and by the test runner, neither of
 which has an environment. What that means in practice is worth knowing before you go looking for a
 crash that is not there. With `AUTH_MODE=passkeys`, `docker compose up -d` succeeds, `docker compose
