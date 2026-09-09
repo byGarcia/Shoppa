@@ -8,7 +8,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl openssl tini \
     && rm -rf /var/lib/apt/lists/* \
     && corepack enable \
-    && corepack prepare pnpm@11.13.0 --activate
+    && corepack prepare pnpm@11.26.0 --activate
 
 WORKDIR /app
 

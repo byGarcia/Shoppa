@@ -193,7 +193,7 @@ servers — which is why the content-security policy has to allow images from an
 
 ## 🛠️ Contributing
 
-Running it from source needs **Node 24, 25 or 26** and **pnpm 11.13.0**, both pinned in
+Running it from source needs **Node 24, 25 or 26** and **pnpm 11.26.0**, both pinned in
 `package.json`. The setup from a clean checkout, the conventions this codebase enforces and what a
 useful bug report contains are in [CONTRIBUTING.md](CONTRIBUTING.md).
 

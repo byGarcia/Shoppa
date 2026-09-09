@@ -12,7 +12,7 @@ Bug fixes, documentation and translations need no permission. Open the pull requ
 
 ## Running it locally
 
-**You need Node 24, 25 or 26, pnpm 11.13.0, and Docker with the Compose plugin.** Both versions are
+**You need Node 24, 25 or 26, pnpm 11.26.0, and Docker with the Compose plugin.** Both versions are
 pinned in `package.json`, and the easiest way to get the right pnpm is `corepack enable` — which is
 what the Dockerfile does. Older Node is not a preference: `pnpm install` fails with `EBADENGINE`,
 and `pnpm db:seed` runs `prisma/seed.ts` through `node` directly, which needs the TypeScript

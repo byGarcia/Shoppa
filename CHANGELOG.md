@@ -9,6 +9,15 @@ commit SHA rather than a number. When that changes, the versions here will follo
 
 ## Unreleased
 
+### Fixed
+
+- **`pnpm` refused to run in this repository.** `packageManager` pinned `pnpm@11.13.0`, which pnpm
+  itself now lists as a broken release — its `@pnpm/exe` build shipped without a binary — so any
+  recent pnpm reading the pin stops with `BROKEN_PNPM_RELEASE` before doing anything. Not just
+  `install`: every script, including the `pnpm check` that `CONTRIBUTING.md` asks for before a
+  commit. The pin is now `pnpm@11.26.0`, and the same version is what `corepack prepare` activates
+  in the `Dockerfile`. Same major, same lockfile — nothing else moves.
+
 ### Changed
 
 - **The screens live at English paths.** `/ajustes` is now `/settings` — with `/settings/stores`,
