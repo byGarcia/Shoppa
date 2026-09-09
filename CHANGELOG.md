@@ -9,6 +9,17 @@ commit SHA rather than a number. When that changes, the versions here will follo
 
 ## Unreleased
 
+### Added
+
+- **The installation's language is configurable: `DEFAULT_LOCALE`** (`es` or `en`, default `es`).
+  It was a constant, so `es` — one household's language — was what every installation fell back to
+  with no way to change it. It governs two things: a request whose `Accept-Language` names neither
+  language, and text composed with no request at all, which is where the **price-drop alerts** come
+  from — the daily run is a timer, so there is no browser to ask and no cookie to read. A browser
+  that does ask for Spanish or English still gets it, and the Settings switch still overrides both.
+  An unrecognised value is refused rather than defaulted, like the other enumerated variables.
+  **Nothing changes for an instance already running**: the default is still `es`.
+
 ### Fixed
 
 - **`pnpm` refused to run in this repository.** `packageManager` pinned `pnpm@11.13.0`, which pnpm

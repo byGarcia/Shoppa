@@ -128,6 +128,7 @@ actually change:
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | unset | Where price-drop alerts go. Without them the run still works, silently. |
 | `TRUSTED_PROXY` | `none` | `none`, `x-real-ip`, `xff` or `cloudflare`. Which header carries the client IP. |
 | `AUTH_MODE` | `auto` | `auto`, `passkey` or `password`. |
+| `DEFAULT_LOCALE` | `es` | `es` or `en`. The language for a browser that asks for neither, and for the price alerts, which have no browser to ask. |
 
 Two traps worth reading before you deploy:
 

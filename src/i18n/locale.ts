@@ -11,11 +11,11 @@ export const LOCALES = ["es", "en"] as const;
 export type Locale = (typeof LOCALES)[number];
 
 /**
- * Spanish is the fallback because the deployed installation runs in Spanish and
- * an unrecognised `Accept-Language` must not silently change what the household
- * already reads.
+ * Which language an installation falls back to is configuration, not a constant
+ * in here: see `defaultLocale()` in src/lib/env.ts, which reads `DEFAULT_LOCALE`
+ * against this list. This module stays free of `process.env` because the
+ * components that pick a language in the browser import it.
  */
-export const DEFAULT_LOCALE: Locale = "es";
 
 /** Next.js' conventional name; also what a `<html lang>`-aware proxy expects. */
 export const LOCALE_COOKIE = "NEXT_LOCALE";

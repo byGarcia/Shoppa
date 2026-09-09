@@ -71,6 +71,9 @@ Shoppa does not own:
   shops: which supermarkets exist is the household's to say.
 - **Two languages.** Spanish and English, chosen by the browser and overridable in settings. Factory
   category names follow the interface language until they are renamed; renaming wins from then on.
+  What a browser asking for neither gets — and what the price alerts are written in, having no
+  browser at all — is the installation's, set with `DEFAULT_LOCALE`. It is configuration because the
+  alternative is one household's language compiled into everybody's copy.
 - **Price tracking runs by itself.** The application keeps its own clock (`PRICE_CHECK_CRON`) and
   fetches product pages itself. `PRICE_FETCH_MODE=assisted` is the optional mode for shops that
   refuse a datacenter address, and it moves only the download.
