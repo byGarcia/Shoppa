@@ -478,6 +478,7 @@
       "tracking": "Vigilando {name} desde {price}",
       "added": "Añadido: {name}",
       "addedWithCategory": "Añadido: {name} ({category})",
+      "addedToStore": "Añadido a {store}: {name}",
       "notFound": "No encontrado: {text}",
       "removed": "Quitado: {names}"
     },

@@ -67,6 +67,10 @@ Shoppa does not own:
 - **First run is a claim, not a registration.** An instance with no accounts can be claimed once,
   with a token printed to the container log on the first request of every boot until somebody does.
   After that, registration is closed and everybody else arrives by single-use invitation.
+- **A product placed once stays placed.** Moving an item to a shop teaches that shop to the exact
+  product, and the next time it is added without a shop — from the inbox or by voice — it goes there
+  by itself. A looser word match only suggests: it is right often enough to highlight a shop and
+  wrong often enough not to file anything on its own.
 - **It ships with content.** Twelve factory categories and a bilingual categorization dictionary. No
   shops: which supermarkets exist is the household's to say.
 - **Two languages.** Spanish and English, chosen by the browser and overridable in settings. Factory

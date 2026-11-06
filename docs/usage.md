@@ -103,9 +103,11 @@ Two honest details about the learning:
 - **Clearing a category teaches nothing.** Deselecting the category on a row leaves that row without
   one but does not unlearn anything; to change the answer, choose the right category rather than
   none.
-- **A learned "usual shop" never moves an item on its own.** It is used to highlight the suggested
-  shop in the inbox, which is one tap away from being wrong. Nothing is filed into a shop behind
-  your back.
+- **A learned "usual shop" files only the exact product.** Once you have put `leche` in a shop, the
+  next `leche` with no shop chosen — typed into *Unassigned* or dictated — goes straight there.
+  `leche de avena` does not: a looser match only highlights the suggested shop in the inbox, which
+  is one tap away from being wrong. To change a product's usual shop, move it, or edit it in the
+  dictionary.
 
 **The dictionary is a screen.** **Settings → Dictionary** lists every word Shoppa knows, with a
 search box and a badge on each: *Factory* for the ones it shipped with, *Learned* for the ones the
@@ -125,7 +127,8 @@ with no category and removes its dictionary entries, so it asks first.
 
 The inbox is where things go when nobody has decided which shop they are for. Two things land here:
 anything dictated to Siri (marked with a 🎙️), and anything you add from *All* with the destination
-chip on *Unassigned*.
+chip on *Unassigned* — in both cases unless that exact product already has a usual shop, in which
+case it goes there instead.
 
 Each card offers a row of shop chips: one tap sends the item to that shop. The chip Shoppa thinks is
 right — from the usual shop it learned for that product — is outlined in the accent colour, so the

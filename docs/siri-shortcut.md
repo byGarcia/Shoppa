@@ -43,7 +43,7 @@ need.
 
 | Endpoint | Body | What it does |
 |---|---|---|
-| `POST /api/ingest/voice` | `{"text": "milk"}` | Adds the item to the inbox ("Unassigned"), categorized automatically. If the same item is already there but ticked off, it comes back rather than being duplicated. The reply names the category it went to. |
+| `POST /api/ingest/voice` | `{"text": "milk"}` | Adds the item to the shop that exact product was last filed under, or to the inbox ("Unassigned") if it has none, categorized automatically. If the same item is already there but ticked off, it comes back rather than being duplicated. The reply names the shop it went to, or the category when it went to the inbox. |
 | `POST /api/ingest/remove` | `{"text": "milk"}` | Ticks off the most recent unticked item matching that text, across every shop and the inbox. Exact match first, then a whole-name fuzzy pass, so a dictation variant still finds it. It **ticks, never deletes**, so a mistake is recoverable. A miss answers "Not found" rather than silently doing nothing. |
 
 Prefix both with your `APP_ORIGIN`, for example

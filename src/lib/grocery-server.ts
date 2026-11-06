@@ -41,6 +41,13 @@ export async function learnHint(
 }
 
 /**
+ * Destination: the shop the caller named. With none (the inbox, and every voice
+ * add), the shop this exact product was last moved to — a household that has
+ * filed "milk" under one shop does not want to file it again every week.
+ * Exact only: the looser word match is right often enough to suggest a shop in
+ * the inbox and wrong often enough ("milk" answering for "oat milk") that it
+ * must not file anything by itself. Everything else lands in the inbox.
+ *
  * Dedup/idempotency rule, applied to BOTH manual and voice adds:
  * same normalizedName + same destination (storeId; inbox = null) →
  *   - unchecked row exists: reuse it, do not duplicate
@@ -54,10 +61,15 @@ export async function addOrReviveItem(input: {
   addedByUserId: string | null;
 }): Promise<{ item: GroceryItem; reused: boolean }> {
   const name = input.name.trim();
-  const { normalizedName, categoryId } = await categorizeText(name);
+  const normalizedName = normalizeGroceryText(name);
+  const hints = await loadHints();
+  const { categoryId } = matchGrocery(normalizedName, hints);
+  const learnedStoreId =
+    hints.find((h) => h.normalizedName === normalizedName)?.storeHintId ?? null;
+  const storeId = input.storeId ?? learnedStoreId;
 
   const existing = await prisma.groceryItem.findFirst({
-    where: { normalizedName, storeId: input.storeId },
+    where: { normalizedName, storeId },
     orderBy: { createdAt: "desc" },
   });
 
@@ -76,7 +88,7 @@ export async function addOrReviveItem(input: {
     data: {
       name,
       normalizedName,
-      storeId: input.storeId,
+      storeId,
       categoryId,
       source: input.source,
       addedByUserId: input.addedByUserId,
