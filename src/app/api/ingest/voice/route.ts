@@ -9,7 +9,8 @@ import { prisma } from "@/server/db";
 /**
  * POST /api/ingest/voice — the "add to the shopping list" Siri Shortcut.
  * Body { text }, Authorization: Bearer <VoiceToken>.
- * Creates/revives the item in the inbox, auto-categorized.
+ * Creates/revives the item in the shop it was last filed under, or in the
+ * inbox when it has never been filed; auto-categorized either way.
  * Response body.message is what the Shortcut shows/speaks.
  */
 export async function POST(request: Request): Promise<NextResponse> {
@@ -36,10 +37,24 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const { item } = await addOrReviveItem({
       name: parsed.data.text,
-      storeId: null, // the inbox, shown as the "unassigned" tab
+      storeId: null, // the learned shop, else the inbox ("unassigned" tab)
       source: "SIRI",
       addedByUserId: auth.userId,
     });
+
+    // The shop is what the person needs to hear: it is where they will look.
+    if (item.storeId) {
+      const store = await prisma.groceryStore.findUnique({
+        where: { id: item.storeId },
+        select: { name: true },
+      });
+      if (store) {
+        return NextResponse.json({
+          ok: true,
+          message: t("ingest.addedToStore", { name: item.name, store: store.name }),
+        });
+      }
+    }
 
     const tCategories = await getTranslations("categories");
     const category = item.categoryId
