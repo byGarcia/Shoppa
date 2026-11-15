@@ -203,9 +203,10 @@ The buttons under each card:
 | 🗑 **Stop tracking** | Removes the product and its price history. Asks first. |
 
 **The alert.** Every morning Shoppa re-reads each tracked page and stores the reading. A Telegram
-message goes out when a price is **below the reference and was not already below it** — so a product
-that stays cheap for a week buzzes once, not seven times, and can alert again after it climbs back
-up and drops a second time. The message names the product, the new price, the old one, the
+message goes out when a price is **below the reference and was not already announced**, and the drop
+is **at least 5 %** or the price is **the lowest it has been**. A product that stays cheap for a week
+buzzes once, not seven times, and can alert again after it climbs back up and drops a second time;
+a drop of a few cents that is not a new lowest price sends nothing. The message names the product, the new price, the old one, the
 percentage, and the lowest it has ever been.
 
 If a shop cannot be read three times in a row, one message says so — once, not once a day — and it

@@ -9,6 +9,13 @@ commit SHA rather than a number. When that changes, the versions here will follo
 
 ## Unreleased
 
+### Changed
+
+- **Price-drop alerts skip drops of a few cents.** A reading below the reference used to send a
+  message whatever the size of the drop, so a product going from 59.99 to 59.79 buzzed like a real
+  sale. An alert now needs a drop of at least 5 % or a new lowest price. A small drop that is not
+  announced does not use up the alert: a real drop that follows it is still announced.
+
 ### Added
 
 - **The installation's language is configurable: `DEFAULT_LOCALE`** (`es` or `en`, default `es`).

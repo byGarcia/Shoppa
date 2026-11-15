@@ -2,18 +2,15 @@
  * Server-side price checking: read a product page, apply the sanity guard,
  * persist the reading and decide whether Telegram gets a message.
  *
- * The alert rule is deliberately tiny:
- *
- *   price < basePrice && !alertActive  -> notify, alertActive = true
- *   price >= basePrice                 -> alertActive = false
- *
- * so a product that stays cheap for a week buzzes once, not seven times.
+ * The alert rule lives in ./price-alert (decideAlert): a drop below the reference is announced once,
+ * and only if it is at least MIN_DROP_PERCENT or reaches the lowest price recorded.
  */
 
 import { prisma, type TrackedProduct } from "@/server/db";
 import { fetchProductHtml } from "./price-fetch";
 import { extractPriceCandidates, pickCandidate } from "./price-extract";
 import { escapeHtml, isTelegramConfigured, sendTelegram } from "./telegram";
+import { decideAlert } from "./price-alert";
 import { apiText, serverLocale, serverTranslations } from "@/lib/api-messages";
 
 /** A reading further than this from the reference price is not believed. */
@@ -206,7 +203,8 @@ export async function processProductHtml(
   const now = new Date();
   const previousLowest = product.lowestPrice === null ? null : Number(product.lowestPrice);
   const isNewLowest = previousLowest === null || price < previousLowest;
-  const shouldAlert = price < basePrice && !product.alertActive;
+  const decision = decideAlert({ price, basePrice, alertActive: product.alertActive, previousLowest });
+  const shouldAlert = decision.alert;
 
   await prisma.$transaction([
     prisma.priceCheck.create({ data: { productId: product.id, price } }),
@@ -218,7 +216,7 @@ export async function processProductHtml(
         failCount: 0,
         failNotified: false,
         lastError: null,
-        alertActive: price < basePrice,
+        alertActive: decision.alertActive,
         ...(isNewLowest ? { lowestPrice: price, lowestAt: now } : {}),
       },
     }),

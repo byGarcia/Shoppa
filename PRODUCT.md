@@ -81,6 +81,11 @@ Shoppa does not own:
 - **Price tracking runs by itself.** The application keeps its own clock (`PRICE_CHECK_CRON`) and
   fetches product pages itself. `PRICE_FETCH_MODE=assisted` is the optional mode for shops that
   refuse a datacenter address, and it moves only the download.
+- **A drop worth a message, once.** A reading below the reference is announced when it is at least
+  5 % below it or reaches the lowest price recorded, and then not again until the price climbs back
+  to the reference. A few cents off is not news: it is what a shop's page does on an ordinary day,
+  and a message for it teaches the household to ignore the next one. It is a constant, not a
+  setting, because nobody should have to tune it to get quiet alerts.
 - **A price is never invented.** A shop that cannot be read produces a typed failure with its
   reason, and the reference can be typed by hand.
 
